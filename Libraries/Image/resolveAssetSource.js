@@ -7,21 +7,36 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  *
  * @providesModule resolveAssetSource
+ * @flow
+ *
+ * Resolves an asset into a `source` for `Image`.
  */
 'use strict';
 
+export type ResolvedAssetSource = {
+  __packager_asset: boolean,
+  width: number,
+  height: number,
+  uri: string,
+  scale: number,
+};
+
+var AssetRegistry = require('AssetRegistry');
 var PixelRatio = require('PixelRatio');
+var Platform = require('Platform');
 var SourceCode = require('NativeModules').SourceCode;
 
 var _serverURL;
 
-function getServerURL() {
+function getDevServerURL() {
   if (_serverURL === undefined) {
     var scriptURL = SourceCode.scriptURL;
     var match = scriptURL && scriptURL.match(/^https?:\/\/.*?\//);
     if (match) {
+      // Bundle was loaded from network
       _serverURL = match[0];
     } else {
+      // Bundle was loaded from file
       _serverURL = null;
     }
   }
@@ -29,7 +44,58 @@ function getServerURL() {
   return _serverURL;
 }
 
-function pickScale(scales, deviceScale) {
+/**
+ * Returns the path at which the asset can be found in the archive
+ */
+function getPathInArchive(asset) {
+  if (Platform.OS === 'android') {
+    var assetDir = getBasePath(asset);
+    // E.g. 'assets_awesomemodule_icon'
+    // The Android resource system picks the correct scale.
+    return (assetDir + '/' + asset.name)
+      .toLowerCase()
+      .replace(/\//g, '_')           // Encode folder structure in file name
+      .replace(/([^a-z0-9_])/g, '')  // Remove illegal chars
+      .replace(/^assets_/, '');      // Remove "assets_" prefix
+  } else {
+    // E.g. 'assets/AwesomeModule/icon@2x.png'
+    return getScaledAssetPath(asset);
+  }
+}
+
+/**
+ * Returns an absolute URL which can be used to fetch the asset
+ * from the devserver
+ */
+function getPathOnDevserver(devServerUrl, asset) {
+  return devServerUrl + getScaledAssetPath(asset) + '?platform=' + Platform.OS +
+    '&hash=' + asset.hash;
+}
+
+/**
+ * Returns a path like 'assets/AwesomeModule'
+ */
+function getBasePath(asset) {
+  // TODO(frantic): currently httpServerLocation is used both as
+  // path in http URL and path within IPA. Should we have zipArchiveLocation?
+  var path = asset.httpServerLocation;
+  if (path[0] === '/') {
+    path = path.substr(1);
+  }
+  return path;
+}
+
+/**
+ * Returns a path like 'assets/AwesomeModule/icon@2x.png'
+ */
+function getScaledAssetPath(asset) {
+  var scale = pickScale(asset.scales, PixelRatio.get());
+  var scaleSuffix = scale === 1 ? '' : '@' + scale + 'x';
+  var assetDir = getBasePath(asset);
+  return assetDir + '/' + asset.name + scaleSuffix + '.' + asset.type;
+}
+
+function pickScale(scales: Array<number>, deviceScale: number): number {
   // Packager guarantees that `scales` array is sorted
   for (var i = 0; i < scales.length; i++) {
     if (scales[i] >= deviceScale) {
@@ -43,58 +109,28 @@ function pickScale(scales, deviceScale) {
   return scales[scales.length - 1] || 1;
 }
 
-// TODO(frantic):
-//   * Pick best scale and append @Nx to file path
-//   * We are currently using httpServerLocation for both http and in-app bundle
-function resolveAssetSource(source) {
-  if (!source.__packager_asset) {
+function resolveAssetSource(source: any): ?ResolvedAssetSource {
+  if (typeof source === 'object') {
     return source;
   }
 
-  // Deprecated assets are managed by Xcode for now,
-  // just returning image name as `uri`
-  // Examples:
-  //   require('image!deprecatd_logo_example')
-  //   require('./new-hotness-logo-example.png')
-  if (source.deprecated) {
-    return {
-      width: source.width,
-      height: source.height,
-      isStatic: true,
-      uri: source.name || source.uri, // TODO(frantic): remove uri
-    };
+  var asset = AssetRegistry.getAssetByID(source);
+  if (asset) {
+    return assetToImageSource(asset);
   }
 
-  // TODO(frantic): currently httpServerLocation is used both as
-  // path in http URL and path within IPA. Should we have zipArchiveLocation?
-  var path = source.httpServerLocation;
-  if (path[0] === '/') {
-    path = path.substr(1);
-  }
+  return null;
+}
 
-  var scale = pickScale(source.scales, PixelRatio.get());
-  var scaleSuffix = scale === 1 ? '' : '@' + scale + 'x';
-
-  var fileName = source.name + scaleSuffix + '.' + source.type;
-  var serverURL = getServerURL();
-  if (serverURL) {
-    return {
-      width: source.width,
-      height: source.height,
-      uri: serverURL + path + '/' + fileName +
-        '?hash=' + source.hash,
-      isStatic: false,
-    };
-  } else {
-    return {
-      width: source.width,
-      height: source.height,
-      uri: path + '/' + fileName,
-      isStatic: true,
-    };
-  }
-
-  return source;
+function assetToImageSource(asset): ResolvedAssetSource {
+  var devServerURL = getDevServerURL();
+  return {
+    __packager_asset: true,
+    width: asset.width,
+    height: asset.height,
+    uri: devServerURL ? getPathOnDevserver(devServerURL, asset) : getPathInArchive(asset),
+    scale: pickScale(asset.scales, PixelRatio.get()),
+  };
 }
 
 module.exports = resolveAssetSource;

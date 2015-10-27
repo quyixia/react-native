@@ -1,13 +1,13 @@
 /**
  * Copyright (c) 2015, Facebook, Inc.  All rights reserved.
  *
- * Facebook, Inc. (“Facebook”) owns all right, title and interest, including
+ * Facebook, Inc. ("Facebook") owns all right, title and interest, including
  * all intellectual property and other proprietary rights, in and to the React
- * Native CustomComponents software (the “Software”).  Subject to your
+ * Native CustomComponents software (the "Software").  Subject to your
  * compliance with these terms, you are hereby granted a non-exclusive,
  * worldwide, royalty-free copyright license to (1) use and copy the Software;
  * and (2) reproduce and distribute the Software as part of your own software
- * (“Your Software”).  Facebook reserves all rights not expressly granted to
+ * ("Your Software").  Facebook reserves all rights not expressly granted to
  * you in this license agreement.
  *
  * THE SOFTWARE AND DOCUMENTATION, IF ANY, ARE PROVIDED "AS IS" AND ANY EXPRESS
@@ -101,6 +101,42 @@ var FadeToTheLeft = {
   },
 };
 
+var FadeToTheRight = {
+  ...FadeToTheLeft,
+  transformTranslate: {
+    from: {x: 0, y: 0, z: 0},
+    to: {x: Math.round(SCREEN_WIDTH * 0.3), y: 0, z: 0},
+  },
+  translateX: {
+    from: 0,
+    to: Math.round(SCREEN_WIDTH * 0.3),
+  }
+};
+
+var FadeIn = {
+  opacity: {
+    from: 0,
+    to: 1,
+    min: 0.5,
+    max: 1,
+    type: 'linear',
+    extrapolate: false,
+    round: 100,
+  },
+};
+
+var FadeOut = {
+  opacity: {
+    from: 1,
+    to: 0,
+    min: 0,
+    max: 0.5,
+    type: 'linear',
+    extrapolate: false,
+    round: 100,
+  },
+};
+
 var ToTheLeft = {
   transformTranslate: {
     from: {x: 0, y: 0, z: 0},
@@ -115,8 +151,67 @@ var ToTheLeft = {
     value: 1.0,
     type: 'constant',
   },
+
+  translateX: {
+    from: 0,
+    to: -Dimensions.get('window').width,
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
 };
 
+var ToTheUp = {
+  transformTranslate: {
+    from: {x: 0, y: 0, z: 0},
+    to: {x: 0, y: -Dimensions.get('window').height, z: 0},
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+  opacity: {
+    value: 1.0,
+    type: 'constant',
+  },
+  translateY: {
+    from: 0,
+    to: -Dimensions.get('window').height,
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+};
+
+var ToTheDown = {
+  transformTranslate: {
+    from: {x: 0, y: 0, z: 0},
+    to: {x: 0, y: Dimensions.get('window').height, z: 0},
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+  opacity: {
+    value: 1.0,
+    type: 'constant',
+  },
+  translateY: {
+    from: 0,
+    to: Dimensions.get('window').height,
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+};
 
 var FromTheRight = {
   opacity: {
@@ -154,6 +249,71 @@ var FromTheRight = {
   },
 };
 
+var FromTheLeft = {
+  ...FromTheRight,
+  transformTranslate: {
+    from: {x: -SCREEN_WIDTH, y: 0, z: 0},
+    to: {x: 0, y: 0, z: 0},
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+  translateX: {
+    from: -SCREEN_WIDTH,
+    to: 0,
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+};
+
+var FromTheDown = {
+  ...FromTheRight,
+  transformTranslate: {
+    from: {y: SCREEN_HEIGHT, x: 0, z: 0},
+    to: {x: 0, y: 0, z: 0},
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+  translateY: {
+    from: SCREEN_HEIGHT,
+    to: 0,
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+};
+
+var FromTheTop = {
+  ...FromTheRight,
+  transformTranslate: {
+    from: {y: -SCREEN_HEIGHT, x: 0, z: 0},
+    to: {x: 0, y: 0, z: 0},
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+  translateY: {
+    from: -SCREEN_HEIGHT,
+    to: 0,
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+};
 
 var ToTheBack = {
   // Rotate *requires* you to break out each individual component of
@@ -236,12 +396,52 @@ var FromTheFront = {
   },
 };
 
+var ToTheBackAndroid = {
+  opacity: {
+    value: 1,
+    type: 'constant',
+  },
+};
+
+var FromTheFrontAndroid = {
+  opacity: {
+    from: 0,
+    to: 1,
+    min: 0.5,
+    max: 1,
+    type: 'linear',
+    extrapolate: false,
+    round: 100,
+  },
+  transformTranslate: {
+    from: {x: 0, y: 100, z: 0},
+    to: {x: 0, y: 0, z: 0},
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+  translateY: {
+    from: 100,
+    to: 0,
+    min: 0,
+    max: 1,
+    type: 'linear',
+    extrapolate: true,
+    round: PixelRatio.get(),
+  },
+};
+
 var BaseOverswipeConfig = {
   frictionConstant: 1,
   frictionByDistance: 1.5,
 };
 
 var BaseLeftToRightGesture = {
+
+  // If the gesture can end and restart during one continuous touch
+  isDetachable: false,
 
   // How far the swipe must drag to start transitioning
   gestureDetectMovement: 2,
@@ -270,6 +470,18 @@ var BaseLeftToRightGesture = {
 var BaseRightToLeftGesture = {
   ...BaseLeftToRightGesture,
   direction: 'right-to-left',
+};
+
+var BaseDownUpGesture = {
+  ...BaseLeftToRightGesture,
+  fullDistance: SCREEN_HEIGHT,
+  direction: 'down-to-up',
+};
+
+var BaseUpDownGesture = {
+  ...BaseLeftToRightGesture,
+  fullDistance: SCREEN_HEIGHT,
+  direction: 'up-to-down',
 };
 
 var BaseConfig = {
@@ -301,6 +513,13 @@ var NavigatorSceneConfigs = {
     ...BaseConfig,
     // We will want to customize this soon
   },
+  FloatFromLeft: {
+    ...BaseConfig,
+    animationInterpolators: {
+      into: buildStyleInterpolator(FromTheLeft),
+      out: buildStyleInterpolator(FadeToTheRight),
+    },
+  },
   FloatFromBottom: {
     ...BaseConfig,
     gestures: {
@@ -316,6 +535,24 @@ var NavigatorSceneConfigs = {
       out: buildStyleInterpolator(ToTheBack),
     },
   },
+  FloatFromBottomAndroid: {
+    ...BaseConfig,
+    gestures: null,
+    defaultTransitionVelocity: 3,
+    springFriction: 20,
+    animationInterpolators: {
+      into: buildStyleInterpolator(FromTheFrontAndroid),
+      out: buildStyleInterpolator(ToTheBackAndroid),
+    },
+  },
+  FadeAndroid: {
+    ...BaseConfig,
+    gestures: null,
+    animationInterpolators: {
+      into: buildStyleInterpolator(FadeIn),
+      out: buildStyleInterpolator(FadeOut),
+    },
+  },
   HorizontalSwipeJump: {
     ...BaseConfig,
     gestures: {
@@ -323,16 +560,60 @@ var NavigatorSceneConfigs = {
         ...BaseLeftToRightGesture,
         overswipe: BaseOverswipeConfig,
         edgeHitWidth: null,
+        isDetachable: true,
       },
       jumpForward: {
         ...BaseRightToLeftGesture,
         overswipe: BaseOverswipeConfig,
         edgeHitWidth: null,
+        isDetachable: true,
       },
     },
     animationInterpolators: {
       into: buildStyleInterpolator(FromTheRight),
       out: buildStyleInterpolator(ToTheLeft),
+    },
+  },
+  VerticalUpSwipeJump: {
+    ...BaseConfig,
+    gestures: {
+      jumpBack: {
+        ...BaseDownUpGesture,
+        overswipe: BaseOverswipeConfig,
+        edgeHitWidth: null,
+        isDetachable: true,
+      },
+      jumpForward: {
+        ...BaseDownUpGesture,
+        overswipe: BaseOverswipeConfig,
+        edgeHitWidth: null,
+        isDetachable: true,
+      },
+    },
+    animationInterpolators: {
+      into: buildStyleInterpolator(FromTheDown),
+      out: buildStyleInterpolator(ToTheUp),
+    },
+  },
+  VerticalDownSwipeJump: {
+    ...BaseConfig,
+    gestures: {
+      jumpBack: {
+        ...BaseUpDownGesture,
+        overswipe: BaseOverswipeConfig,
+        edgeHitWidth: null,
+        isDetachable: true,
+      },
+      jumpForward: {
+        ...BaseUpDownGesture,
+        overswipe: BaseOverswipeConfig,
+        edgeHitWidth: null,
+        isDetachable: true,
+      },
+    },
+    animationInterpolators: {
+      into: buildStyleInterpolator(FromTheTop),
+      out: buildStyleInterpolator(ToTheDown),
     },
   },
 };

@@ -5,9 +5,9 @@
 
 var NativeModules = {
   I18n: {
-    translationsDictionary: {
+    translationsDictionary: JSON.stringify({
       'Good bye, {name}!|Bye message': '¡Adiós {name}!',
-    },
+    }),
   },
   Timing: {
     createTimer: jest.genMockFunction(),
@@ -29,6 +29,13 @@ var NativeModules = {
   UIManager: {
     customBubblingEventTypes: {},
     customDirectEventTypes: {},
+    Dimensions: {},
+    RCTModalFullscreenView: {
+      Constants: {},
+    },
+    RCTScrollView: {
+      Constants: {},
+    },
   },
   AsyncLocalStorage: {
     getItem: jest.genMockFunction(),
@@ -38,6 +45,17 @@ var NativeModules = {
   },
   SourceCode: {
     scriptURL: null,
+  },
+  BuildInfo: {
+    appVersion: '0',
+    buildVersion: '0',
+  },
+  ModalFullscreenViewManager: {},
+  AlertManager: {
+    alertWithArgs: jest.genMockFunction(),
+  },
+  Pasteboard: {
+    setPasteboardString: jest.genMockFunction(),
   },
 };
 

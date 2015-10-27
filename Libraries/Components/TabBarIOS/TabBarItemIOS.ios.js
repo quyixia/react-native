@@ -7,7 +7,6 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  *
  * @providesModule TabBarItemIOS
- * @flow
  */
 'use strict';
 
@@ -16,6 +15,7 @@ var React = require('React');
 var StaticContainer = require('StaticContainer.react');
 var StyleSheet = require('StyleSheet');
 var View = require('View');
+var resolveAssetSource = require('resolveAssetSource');
 
 var requireNativeComponent = require('requireNativeComponent');
 
@@ -66,6 +66,9 @@ var TabBarItemIOS = React.createClass({
      * blank content, you probably forgot to add a selected one.
      */
     selected: React.PropTypes.bool,
+    /**
+     * React style object.
+     */
     style: View.propTypes.style,
     /**
      * Text that appears under the icon. It is ignored when a system icon
@@ -86,7 +89,7 @@ var TabBarItemIOS = React.createClass({
     }
   },
 
-  componentWillReceiveProps: function(nextProps: { selected: boolean }) {
+  componentWillReceiveProps: function(nextProps: { selected?: boolean }) {
     if (this.state.hasBeenSelected || nextProps.selected) {
       this.setState({hasBeenSelected: true});
     }
@@ -105,22 +108,16 @@ var TabBarItemIOS = React.createClass({
       tabContents = <View />;
     }
 
-    var icon = this.props.systemIcon || (
-      this.props.icon && this.props.icon.uri
-    );
-
     var badge = typeof this.props.badge === 'number' ?
       '' + this.props.badge :
       this.props.badge;
 
     return (
       <RCTTabBarItem
-        icon={icon}
-        selectedIcon={this.props.selectedIcon && this.props.selectedIcon.uri}
-        onPress={this.props.onPress}
-        selected={this.props.selected}
+        {...this.props}
+        icon={this.props.systemIcon || resolveAssetSource(this.props.icon)}
+        selectedIcon={resolveAssetSource(this.props.selectedIcon)}
         badge={badge}
-        title={this.props.title}
         style={[styles.tab, this.props.style]}>
         {tabContents}
       </RCTTabBarItem>

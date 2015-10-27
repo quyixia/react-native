@@ -12,18 +12,18 @@
 'use strict';
 
 var EventEmitter = require('EventEmitter');
-var React = require('React');
-var ReactIOSViewAttributes = require('ReactIOSViewAttributes');
+var Image = require('Image');
+var NavigationContext = require('NavigationContext');
 var RCTNavigatorManager = require('NativeModules').NavigatorManager;
-var StyleSheet = require('StyleSheet');
+var React = require('React');
 var StaticContainer = require('StaticContainer.react');
+var StyleSheet = require('StyleSheet');
 var View = require('View');
 
-var createReactIOSNativeComponentClass =
-  require('createReactIOSNativeComponentClass');
 var invariant = require('invariant');
 var logError = require('logError');
-var merge = require('merge');
+var requireNativeComponent = require('requireNativeComponent');
+var resolveAssetSource = require('resolveAssetSource');
 
 var TRANSITIONER_REF = 'transitionerRef';
 
@@ -34,34 +34,10 @@ function getuid() {
   return __uid++;
 }
 
-var RCTNavigator = createReactIOSNativeComponentClass({
-  validAttributes: merge(ReactIOSViewAttributes.UIView, {
-    requestedTopOfStack: true
-  }),
-  uiViewClassName: 'RCTNavigator',
-});
-
-var RCTNavigatorItem = createReactIOSNativeComponentClass({
-  validAttributes: {
-    // TODO: Remove or fix the attributes that are not fully functional.
-    //  NavigatorIOS does not use them all, because some are problematic
-    title: true,
-    barTintColor: true,
-    rightButtonTitle: true,
-    onNavRightButtonTap: true,
-    tintColor: true,
-    navigationBarHidden: true,
-    backButtonTitle: true,
-    titleTextColor: true,
-    style: true,
-  },
-  uiViewClassName: 'RCTNavItem',
-});
-
 var NavigatorTransitionerIOS = React.createClass({
   requestSchedulingNavigation: function(cb) {
     RCTNavigatorManager.requestSchedulingJavaScriptNavigation(
-      (this: any).getNodeHandle(),
+      React.findNodeHandle(this),
       logError,
       cb
     );
@@ -77,11 +53,16 @@ var NavigatorTransitionerIOS = React.createClass({
 type Route = {
   component: Function;
   title: string;
-  passProps: Object;
-  backButtonTitle: string;
-  rightButtonTitle: string;
-  onRightButtonPress: Function;
-  wrapperStyle: any;
+  passProps?: Object;
+  backButtonTitle?: string;
+  backButtonIcon?: Object;
+  leftButtonTitle?: string;
+  leftButtonIcon?: Object;
+  onLeftButtonPress?: Function;
+  rightButtonTitle?: string;
+  rightButtonIcon?: Object;
+  onRightButtonPress?: Function;
+  wrapperStyle?: any;
 };
 
 type State = {
@@ -213,11 +194,38 @@ var NavigatorIOS = React.createClass({
       passProps: PropTypes.object,
 
       /**
+       * If set, the left header button image will appear with this source. Note
+       * that this doesn't apply for the header of the current view, but the
+       * ones of the views that are pushed afterward.
+       */
+      backButtonIcon: Image.propTypes.source,
+
+      /**
        * If set, the left header button will appear with this name. Note that
        * this doesn't apply for the header of the current view, but the ones
        * of the views that are pushed afterward.
        */
       backButtonTitle: PropTypes.string,
+
+      /**
+       * If set, the left header button image will appear with this source
+       */
+      leftButtonIcon: Image.propTypes.source,
+
+      /**
+       * If set, the left header button will appear with this name
+       */
+      leftButtonTitle: PropTypes.string,
+
+      /**
+       * Called when the left header button is pressed
+       */
+      onLeftButtonPress: PropTypes.func,
+
+      /**
+       * If set, the right header button image will appear with this source
+       */
+      rightButtonIcon: Image.propTypes.source,
 
       /**
        * If set, the right header button will appear with this name
@@ -242,6 +250,11 @@ var NavigatorIOS = React.createClass({
     navigationBarHidden: PropTypes.bool,
 
     /**
+     * A Boolean value that indicates whether to hide the 1px hairline shadow
+     */
+    shadowHidden: PropTypes.bool,
+
+    /**
      * The default wrapper style for components in the navigator.
      * A common use case is to set the backgroundColor for every page
      */
@@ -262,9 +275,15 @@ var NavigatorIOS = React.createClass({
      */
     titleTextColor: PropTypes.string,
 
+    /**
+     * A Boolean value that indicates whether the navigation bar is translucent
+     */
+    translucent: PropTypes.bool,
+
   },
 
   navigator: (undefined: ?Object),
+  navigationContext: new NavigationContext(),
 
   componentWillMount: function() {
     // Precompute a pack of callbacks that's frequently generated and passed to
@@ -279,7 +298,18 @@ var NavigatorIOS = React.createClass({
       resetTo: this.resetTo,
       popToRoute: this.popToRoute,
       popToTop: this.popToTop,
+      navigationContext: this.navigationContext,
     };
+    this._emitWillFocus(this.state.routeStack[this.state.observedTopOfStack]);
+  },
+
+  componentDidMount: function() {
+    this._emitDidFocus(this.state.routeStack[this.state.observedTopOfStack]);
+  },
+
+  componentWillUnmount: function() {
+    this.navigationContext.dispose();
+    this.navigationContext = new NavigationContext();
   },
 
   getInitialState: function(): State {
@@ -353,6 +383,8 @@ var NavigatorIOS = React.createClass({
 
   _handleNavigatorStackChanged: function(e: Event) {
     var newObservedTopOfStack = e.nativeEvent.stackLength - 1;
+    this._emitDidFocus(this.state.routeStack[newObservedTopOfStack]);
+
     invariant(
       newObservedTopOfStack <= this.state.requestedTopOfStack,
       'No navigator item should be pushed without JS knowing about it %s %s', newObservedTopOfStack, this.state.requestedTopOfStack
@@ -404,11 +436,21 @@ var NavigatorIOS = React.createClass({
     });
   },
 
+  _emitDidFocus: function(route: Route) {
+    this.navigationContext.emit('didfocus', {route: route});
+  },
+
+  _emitWillFocus: function(route: Route) {
+    this.navigationContext.emit('willfocus', {route: route});
+  },
+
   push: function(route: Route) {
     invariant(!!route, 'Must supply route to push');
     // Make sure all previous requests are caught up first. Otherwise reject.
     if (this.state.requestedTopOfStack === this.state.observedTopOfStack) {
       this._tryLockNavigator(() => {
+        this._emitWillFocus(route);
+
         var nextStack = this.state.routeStack.concat([route]);
         var nextIDStack = this.state.idStack.concat([getuid()]);
         this.setState({
@@ -432,12 +474,11 @@ var NavigatorIOS = React.createClass({
     if (this.state.requestedTopOfStack === this.state.observedTopOfStack) {
       if (this.state.requestedTopOfStack > 0) {
         this._tryLockNavigator(() => {
-          invariant(
-            this.state.requestedTopOfStack - n >= 0,
-            'Cannot pop below 0'
-          );
+          var newRequestedTopOfStack = this.state.requestedTopOfStack - n;
+          invariant(newRequestedTopOfStack >= 0, 'Cannot pop below 0');
+          this._emitWillFocus(this.state.routeStack[newRequestedTopOfStack]);
           this.setState({
-            requestedTopOfStack: this.state.requestedTopOfStack - n,
+            requestedTopOfStack: newRequestedTopOfStack,
             makingNavigatorRequest: true,
             // Not actually updating the indices yet until we get the native
             // `onNavigationComplete`.
@@ -481,6 +522,9 @@ var NavigatorIOS = React.createClass({
       makingNavigatorRequest: false,
       updatingAllIndicesAtOrBeyond: index,
     });
+
+    this._emitWillFocus(route);
+    this._emitDidFocus(route);
   },
 
   /**
@@ -560,12 +604,19 @@ var NavigatorIOS = React.createClass({
             this.props.itemWrapperStyle,
             route.wrapperStyle
           ]}
+          backButtonIcon={resolveAssetSource(route.backButtonIcon)}
           backButtonTitle={route.backButtonTitle}
+          leftButtonIcon={resolveAssetSource(route.leftButtonIcon)}
+          leftButtonTitle={route.leftButtonTitle}
+          onNavLeftButtonTap={route.onLeftButtonPress}
+          rightButtonIcon={resolveAssetSource(route.rightButtonIcon)}
           rightButtonTitle={route.rightButtonTitle}
           onNavRightButtonTap={route.onRightButtonPress}
           navigationBarHidden={this.props.navigationBarHidden}
+          shadowHidden={this.props.shadowHidden}
           tintColor={this.props.tintColor}
           barTintColor={this.props.barTintColor}
+          translucent={this.props.translucent !== false}
           titleTextColor={this.props.titleTextColor}>
           <Component
             navigator={this.navigator}
@@ -605,7 +656,7 @@ var NavigatorIOS = React.createClass({
         {this.renderNavigationStackItems()}
       </View>
     );
-  }
+  },
 });
 
 var styles = StyleSheet.create({
@@ -622,5 +673,8 @@ var styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+var RCTNavigator = requireNativeComponent('RCTNavigator');
+var RCTNavigatorItem = requireNativeComponent('RCTNavItem');
 
 module.exports = NavigatorIOS;

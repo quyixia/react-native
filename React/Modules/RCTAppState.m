@@ -12,6 +12,7 @@
 #import "RCTAssert.h"
 #import "RCTBridge.h"
 #import "RCTEventDispatcher.h"
+#import "RCTUtils.h"
 
 static NSString *RCTCurrentAppBackgroundState()
 {
@@ -25,7 +26,11 @@ static NSString *RCTCurrentAppBackgroundState()
     };
   });
 
-  return states[@([[UIApplication sharedApplication] applicationState])] ?: @"unknown";
+  if (RCTRunningInAppExtension()) {
+    return @"extension";
+  }
+
+  return states[@(RCTSharedApplication().applicationState)] ?: @"unknown";
 }
 
 @implementation RCTAppState
@@ -48,16 +53,25 @@ RCT_EXPORT_MODULE()
     for (NSString *name in @[UIApplicationDidBecomeActiveNotification,
                              UIApplicationDidEnterBackgroundNotification,
                              UIApplicationDidFinishLaunchingNotification]) {
-
       [[NSNotificationCenter defaultCenter] addObserver:self
                                                selector:@selector(handleAppStateDidChange)
                                                    name:name
                                                  object:nil];
     }
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(handleMemoryWarning)
+                                                 name:UIApplicationDidReceiveMemoryWarningNotification
+                                               object:nil];
   }
   return self;
 }
 
+- (void)handleMemoryWarning
+{
+  [_bridge.eventDispatcher sendDeviceEventWithName:@"memoryWarning"
+                                              body:nil];
+}
 
 - (void)dealloc
 {

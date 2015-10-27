@@ -19,11 +19,10 @@
  * @providesModule InitializeJavaScriptAppEngine
  */
 
-/* eslint global-strict: 0 */
+/* eslint strict: 0 */
 /* globals GLOBAL: true, window: true */
 
-// Just to make sure the JS gets packaged up.
-require('RCTDeviceEventEmitter');
+require('regenerator/runtime');
 
 if (typeof GLOBAL === 'undefined') {
   GLOBAL = this;
@@ -33,50 +32,66 @@ if (typeof window === 'undefined') {
   window = GLOBAL;
 }
 
-/**
- * The document must be shimmed before anything else that might define the
- * `ExecutionEnvironment` module (which checks for `document.createElement`).
- */
-function setupDocumentShim() {
-  // The browser defines Text and Image globals by default. If you forget to
-  // require them, then the error message is very confusing.
-  function getInvalidGlobalUseError(name) {
-    return new Error(
-      'You are trying to render the global ' + name + ' variable as a ' +
-      'React element. You probably forgot to require ' + name + '.'
-    );
-  }
-  GLOBAL.Text = {
-    get defaultProps() {
-      throw getInvalidGlobalUseError('Text');
-    }
-  };
-  GLOBAL.Image = {
-    get defaultProps() {
-      throw getInvalidGlobalUseError('Image');
-    }
-  };
-  // Force `ExecutionEnvironment.canUseDOM` to be false.
-  if (GLOBAL.document) {
-    GLOBAL.document.createElement = null;
-  }
-
-  // There is no DOM so MutationObserver doesn't make sense. It is used
-  // as feature detection in Bluebird Promise implementation
-  GLOBAL.MutationObserver = undefined;
-}
-
-function handleErrorWithRedBox(e) {
+function handleError(e, isFatal) {
   try {
-    require('ExceptionsManager').handleException(e);
+    require('ExceptionsManager').handleException(e, isFatal);
   } catch(ee) {
     console.log('Failed to print error: ', ee.message);
   }
 }
 
-function setupRedBoxErrorHandler() {
+/**
+ * Assigns a new global property, replacing the existing one if there is one.
+ *
+ * Existing properties are preserved as `originalPropertyName`. Both properties
+ * will maintain the same enumerability & configurability.
+ *
+ * This allows you to undo the more aggressive polyfills, should you need to.
+ * For example, if you want to route network requests through DevTools (to trace
+ * them):
+ *
+ *     global.XMLHttpRequest = global.originalXMLHttpRequest;
+ *
+ * For more info on that particular case, see:
+ * https://github.com/facebook/react-native/issues/934
+ */
+function polyfillGlobal(name, newValue, scope=GLOBAL) {
+  var descriptor = Object.getOwnPropertyDescriptor(scope, name) || {
+    // jest for some bad reasons runs the polyfill code multiple times. In jest
+    // environment, XmlHttpRequest doesn't exist so getOwnPropertyDescriptor
+    // returns undefined and defineProperty default for writable is false.
+    // Therefore, the second time it runs, defineProperty will fatal :(
+    writable: true,
+  };
+
+  if (scope[name] !== undefined) {
+    var backupName = `original${name[0].toUpperCase()}${name.substr(1)}`;
+    Object.defineProperty(scope, backupName, {...descriptor, value: scope[name]});
+  }
+
+  Object.defineProperty(scope, name, {...descriptor, value: newValue});
+}
+
+function setUpRedBoxErrorHandler() {
   var ErrorUtils = require('ErrorUtils');
-  ErrorUtils.setGlobalHandler(handleErrorWithRedBox);
+  ErrorUtils.setGlobalHandler(handleError);
+}
+
+function setUpRedBoxConsoleErrorHandler() {
+  // ExceptionsManager transitively requires Promise so we install it after
+  var ExceptionsManager = require('ExceptionsManager');
+  var Platform = require('Platform');
+  // TODO (#6925182): Enable console.error redbox on Android
+  if (__DEV__ && Platform.OS === 'ios') {
+    ExceptionsManager.installConsoleErrorReporter();
+  }
+}
+
+function setUpFlowChecker() {
+  if (__DEV__) {
+    var checkFlowAtRuntime = require('checkFlowAtRuntime');
+    checkFlowAtRuntime();
+  }
 }
 
 /**
@@ -86,7 +101,7 @@ function setupRedBoxErrorHandler() {
  * implement our own custom timing bridge that should be immune to
  * unexplainably dropped timing signals.
  */
-function setupTimers() {
+function setUpTimers() {
   var JSTimers = require('JSTimers');
   GLOBAL.setTimeout = JSTimers.setTimeout;
   GLOBAL.setInterval = JSTimers.setInterval;
@@ -101,42 +116,85 @@ function setupTimers() {
   };
 }
 
-function setupAlert() {
+function setUpAlert() {
   var RCTAlertManager = require('NativeModules').AlertManager;
   if (!GLOBAL.alert) {
     GLOBAL.alert = function(text) {
       var alertOpts = {
         title: 'Alert',
         message: '' + text,
-        buttons: [{'cancel': 'Okay'}],
+        buttons: [{'cancel': 'OK'}],
       };
-      RCTAlertManager.alertWithArgs(alertOpts, null);
+      RCTAlertManager.alertWithArgs(alertOpts, function () {});
     };
   }
 }
 
-function setupPromise() {
+function setUpPromise() {
   // The native Promise implementation throws the following error:
   // ERROR: Event loop not supported.
   GLOBAL.Promise = require('Promise');
 }
 
-function setupXHR() {
+function setUpXHR() {
   // The native XMLHttpRequest in Chrome dev tools is CORS aware and won't
   // let you fetch anything from the internet
-  GLOBAL.XMLHttpRequest = require('XMLHttpRequest');
-  GLOBAL.fetch = require('fetch');
+  polyfillGlobal('XMLHttpRequest', require('XMLHttpRequest'));
+  polyfillGlobal('FormData', require('FormData'));
+
+  var fetchPolyfill = require('fetch');
+  polyfillGlobal('fetch', fetchPolyfill.fetch);
+  polyfillGlobal('Headers', fetchPolyfill.Headers);
+  polyfillGlobal('Request', fetchPolyfill.Request);
+  polyfillGlobal('Response', fetchPolyfill.Response);
 }
 
-function setupGeolocation() {
+function setUpGeolocation() {
   GLOBAL.navigator = GLOBAL.navigator || {};
-  GLOBAL.navigator.geolocation = require('Geolocation');
+  polyfillGlobal('geolocation', require('Geolocation'), GLOBAL.navigator);
 }
 
-setupDocumentShim();
-setupRedBoxErrorHandler();
-setupTimers();
-setupAlert();
-setupPromise();
-setupXHR();
-setupGeolocation();
+function setUpWebSockets() {
+  polyfillGlobal('WebSocket', require('WebSocket'));
+}
+
+function setUpProfile() {
+  console.profile = console.profile || GLOBAL.nativeTraceBeginSection || function () {};
+  console.profileEnd = console.profileEnd || GLOBAL.nativeTraceEndSection || function () {};
+  if (__DEV__) {
+    require('BridgeProfiling').swizzleReactPerf();
+  }
+}
+
+function setUpProcessEnv() {
+  GLOBAL.process = GLOBAL.process || {};
+  GLOBAL.process.env = GLOBAL.process.env || {};
+  if (!GLOBAL.process.env.NODE_ENV) {
+    GLOBAL.process.env.NODE_ENV = __DEV__ ? 'development' : 'production';
+  }
+}
+
+function setUpNumber() {
+  Number.EPSILON = Number.EPSILON || Math.pow(2, -52);
+  Number.MAX_SAFE_INTEGER = Number.MAX_SAFE_INTEGER || Math.pow(2, 53) - 1;
+  Number.MIN_SAFE_INTEGER = Number.MIN_SAFE_INTEGER || -(Math.pow(2, 53) - 1);
+}
+
+setUpProcessEnv();
+setUpRedBoxErrorHandler();
+setUpTimers();
+setUpAlert();
+setUpPromise();
+setUpXHR();
+setUpRedBoxConsoleErrorHandler();
+setUpGeolocation();
+setUpWebSockets();
+setUpProfile();
+setUpFlowChecker();
+setUpNumber();
+
+// Just to make sure the JS gets packaged up. Wait until the JS environment has
+// been initialized before requiring them.
+require('RCTDebugComponentOwnership');
+require('RCTDeviceEventEmitter');
+require('PerformanceLogger');

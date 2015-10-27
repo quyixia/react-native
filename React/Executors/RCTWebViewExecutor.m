@@ -42,30 +42,44 @@ static void RCTReportError(RCTJavaScriptCallback callback, NSString *fmt, ...)
 {
   UIWebView *_webView;
   NSMutableDictionary *_objectsToInject;
+  NSRegularExpression *_commentsRegex;
+  NSRegularExpression *_scriptTagsRegex;
 }
+
+RCT_EXPORT_MODULE()
+
+@synthesize valid = _valid;
 
 - (instancetype)initWithWebView:(UIWebView *)webView
 {
   if ((self = [super init])) {
-    _objectsToInject = [[NSMutableDictionary alloc] init];
-    _webView = webView ?: [[UIWebView alloc] init];
-    _webView.delegate = self;
+    _webView = webView;
   }
   return self;
 }
 
-- (id)init
+- (instancetype)init
 {
   return [self initWithWebView:nil];
 }
 
-- (BOOL)isValid
+- (void)setUp
 {
-  return _webView != nil;
+  if (!_webView) {
+    [self executeBlockOnJavaScriptQueue:^{
+      _webView = [UIWebView new];
+      _webView.delegate = self;
+    }];
+  }
+
+  _objectsToInject = [NSMutableDictionary new];
+  _commentsRegex = [NSRegularExpression regularExpressionWithPattern:@"(^ *?\\/\\/.*?$|\\/\\*\\*[\\s\\S]*?\\*\\/)" options:NSRegularExpressionAnchorsMatchLines error:NULL];
+  _scriptTagsRegex = [NSRegularExpression regularExpressionWithPattern:@"<(\\/?script[^>]*?)>" options:0 error:NULL];
 }
 
 - (void)invalidate
 {
+  _valid = NO;
   _webView.delegate = nil;
   _webView = nil;
 }
@@ -80,12 +94,11 @@ static void RCTReportError(RCTJavaScriptCallback callback, NSString *fmt, ...)
 - (void)executeJSCall:(NSString *)name
                method:(NSString *)method
             arguments:(NSArray *)arguments
-              context:(NSNumber *)executorID
              callback:(RCTJavaScriptCallback)onComplete
 {
   RCTAssert(onComplete != nil, @"");
   [self executeBlockOnJavaScriptQueue:^{
-    if (!self.isValid || ![RCTGetExecutorID(self) isEqualToNumber:executorID]) {
+    if (!self.isValid) {
       return;
     }
 
@@ -117,7 +130,7 @@ static void RCTReportError(RCTJavaScriptCallback callback, NSString *fmt, ...)
  * debugger. So we have to use this (essentially) async API - and register
  * ourselves as the webview delegate to be notified when load is complete.
  */
-- (void)executeApplicationScript:(NSString *)script
+- (void)executeApplicationScript:(NSData *)script
                        sourceURL:(NSURL *)url
                       onComplete:(RCTJavaScriptCompleteBlock)onComplete
 {
@@ -129,13 +142,21 @@ static void RCTReportError(RCTJavaScriptCallback callback, NSString *fmt, ...)
   }
 
   RCTAssert(onComplete != nil, @"");
-  _onApplicationScriptLoaded = onComplete;
+  NSString *scriptString = [[NSString alloc] initWithData:script encoding:NSUTF8StringEncoding];
+  __weak RCTWebViewExecutor *weakSelf = self;
+  _onApplicationScriptLoaded = ^(NSError *error){
+    RCTWebViewExecutor *strongSelf = weakSelf;
+    if (!strongSelf) {
+      return;
+    }
+    strongSelf->_valid = error == nil;
+    onComplete(error);
+  };
 
-  script = [script stringByReplacingOccurrencesOfString:@"<script>" withString:@""];
-  script = [script stringByReplacingOccurrencesOfString:@"</script>" withString:@""];
   if (_objectsToInject.count > 0) {
     NSMutableString *scriptWithInjections = [[NSMutableString alloc] initWithString:@"/* BEGIN NATIVELY INJECTED OBJECTS */\n"];
-    [_objectsToInject enumerateKeysAndObjectsUsingBlock:^(NSString *objectName, NSString *blockScript, BOOL *stop) {
+    [_objectsToInject enumerateKeysAndObjectsUsingBlock:
+     ^(NSString *objectName, NSString *blockScript, __unused BOOL *stop) {
       [scriptWithInjections appendString:objectName];
       [scriptWithInjections appendString:@" = ("];
       [scriptWithInjections appendString:blockScript];
@@ -143,43 +164,46 @@ static void RCTReportError(RCTJavaScriptCallback callback, NSString *fmt, ...)
     }];
     [_objectsToInject removeAllObjects];
     [scriptWithInjections appendString:@"/* END NATIVELY INJECTED OBJECTS */\n"];
-    [scriptWithInjections appendString:script];
-    script = scriptWithInjections;
+    [scriptWithInjections appendString:scriptString];
+    scriptString = scriptWithInjections;
   }
+
+  scriptString = [_commentsRegex stringByReplacingMatchesInString:scriptString
+                                                          options:0
+                                                            range:NSMakeRange(0, script.length)
+                                                     withTemplate:@""];
+  scriptString = [_scriptTagsRegex stringByReplacingMatchesInString:scriptString
+                                                            options:0
+                                                              range:NSMakeRange(0, script.length)
+                                                       withTemplate:@"\\\\<$1\\\\>"];
 
   NSString *runScript =
     [NSString
       stringWithFormat:@"<html><head></head><body><script type='text/javascript'>%@</script></body></html>",
-      script
+      scriptString
     ];
   [_webView loadHTMLString:runScript baseURL:url];
 }
 
-/**
- * In order to avoid `UIWebView` thread locks, all JS executions should be
- * performed outside of the event loop that notifies the `UIWebViewDelegate`
- * that the page has loaded. This is only an issue with the remote debug mode of
- * `UIWebView`. For a production `UIWebView` deployment, this delay is
- * unnecessary and possibly harmful (or helpful?)
- *
- * The delay might not be needed as soon as the following change lands into
- * iOS7. (Review the patch linked here and search for "crash"
- * https://bugs.webkit.org/show_bug.cgi?id=125746).
- */
 - (void)executeBlockOnJavaScriptQueue:(dispatch_block_t)block
 {
-  dispatch_time_t when = dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_MSEC);
 
-  dispatch_after(when, dispatch_get_main_queue(), ^{
-    RCTAssertMainThread();
+  if ([NSThread isMainThread]) {
     block();
-  });
+  } else {
+    dispatch_async(dispatch_get_main_queue(), block);
+  }
+}
+
+- (void)executeAsyncBlockOnJavaScriptQueue:(dispatch_block_t)block
+{
+  dispatch_async(dispatch_get_main_queue(), block);
 }
 
 /**
  * `UIWebViewDelegate` methods. Handle application script load.
  */
-- (void)webViewDidFinishLoad:(UIWebView *)webView
+- (void)webViewDidFinishLoad:(__unused UIWebView *)webView
 {
   RCTAssertMainThread();
   if (_onApplicationScriptLoaded) {

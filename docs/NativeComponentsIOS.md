@@ -1,10 +1,10 @@
 ---
-id: nativecomponentsios
-title: Native UI Components (iOS)
+id: native-components-ios
+title: Native UI Components
 layout: docs
-category: Guides
-permalink: docs/nativecomponentsios.html
-next: linking-libraries
+category: Guides (iOS)
+permalink: docs/native-components-ios.html
+next: linking-libraries-ios
 ---
 
 There are tons of native UI widgets out there ready to be used in the latest apps - some of them are part of the platform, others are available as third-party libraries, and still more might be in use in your very own portfolio.  React Native has several of the most critical platform components already wrapped, like `ScrollView` and `TextInput`, but not all of them, and certainly not ones you might have written yourself for a previous app.  Fortunately, it's quite easy to wrap up these existing components for seamless integration with your React Native application.
@@ -18,6 +18,7 @@ Let's say we want to add an interactive Map to our app - might as well use [`MKM
 Native views are created and manipulated by subclasses of `RCTViewManager`.  These subclasses are similar in function to view controllers, but are essentially singletons - only one instance of each is created by the bridge.  They vend native views to the `RCTUIManager`, which delegates back to them to set and update the properties of the views as necessary.  The `RCTViewManager`s are also typically the delegates for the views, sending events back to JavaScript via the bridge.
 
 Vending a view is simple:
+
 - Create the basic subclass.
 - Add the `RCT_EXPORT_MODULE()` marker macro.
 - Implement the `-(UIView *)view` method
@@ -50,6 +51,7 @@ Then you just need a little bit of JavaScript to make this a usable React compon
 
 var { requireNativeComponent } = require('react-native');
 
+// requireNativeComponent automatically resolves this to "RCTMapManager"
 module.exports = requireNativeComponent('RCTMap', null);
 ```
 
@@ -57,7 +59,7 @@ This is now a fully-functioning native map view component in JavaScript, complet
 
 ## Properties
 
-The first thing we can do to make this component more usable is to bridge over some native properties. Let's say we want to be able to disable pitch control specify the visible region.  Disabling pitch is a simple boolean, so we just add this one line:
+The first thing we can do to make this component more usable is to bridge over some native properties. Let's say we want to be able to disable pitch control and specify the visible region.  Disabling pitch is a simple boolean, so we add this one line:
 
 ```objective-c
 // RCTMapManager.m
@@ -66,7 +68,7 @@ RCT_EXPORT_VIEW_PROPERTY(pitchEnabled, BOOL)
 
 Note that we explicitly specify the type as `BOOL` - React Native uses `RCTConvert` under the hood to convert all sorts of different data types when talking over the bridge, and bad values will show convenient "RedBox" errors to let you know there is an issue ASAP.  When things are straightforward like this, the whole implementation is taken care of for you by this macro.
 
-Now to actually disable pitch, we just set the property in JS:
+Now to actually disable pitch, we set the property in JS:
 
 ```javascript
 // MyApp.js
@@ -86,8 +88,6 @@ class MapView extends React.Component {
   }
 }
 
-var RCTMap= requireNativeComponent('RCTMap', MapView);
-
 MapView.propTypes = {
   /**
    * When this property is set to `true` and a valid camera is associated
@@ -96,8 +96,10 @@ MapView.propTypes = {
    * angle is ignored and the map is always displayed as if the user
    * is looking straight down onto it.
    */
-  pitchEnabled = React.PropTypes.bool,
+  pitchEnabled: React.PropTypes.bool,
 };
+
+var RCTMap = requireNativeComponent('RCTMap', MapView);
 
 module.exports = MapView;
 ```
@@ -114,9 +116,9 @@ RCT_CUSTOM_VIEW_PROPERTY(region, MKCoordinateRegion, RCTMap)
 }
 ```
 
-Ok, this is clearly more complicated than the simple `BOOL` case we had before.  Now we have a `MKCoordinateRegion` type that needs a conversion function, and we have custom code so that the view will animate when we set the region from JS.  There is also a `defaultView` that we use to reset the property back to the default value if JS sends us a null sentinel.
+Ok, this is more complicated than the simple `BOOL` case we had before.  Now we have a `MKCoordinateRegion` type that needs a conversion function, and we have custom code so that the view will animate when we set the region from JS.  Within the function body that we provide, `json` refers to the raw value that has been passed from JS.  There is also a `view` variable which gives us access to the manager's view instance, and a `defaultView` that we use to reset the property back to the default value if JS sends us a null sentinel.
 
-You could of course write any conversion function you want for your view - here is the implementation for `MKCoordinateRegion` via two categories on `RCTConvert`:
+You could write any conversion function you want for your view - here is the implementation for `MKCoordinateRegion` via two categories on `RCTConvert`:
 
 ```objective-c
 @implementation RCTConvert(CoreLocation)
@@ -170,7 +172,7 @@ MapView.propTypes = {
    * angle is ignored and the map is always displayed as if the user
    * is looking straight down onto it.
    */
-  pitchEnabled = React.PropTypes.bool,
+  pitchEnabled: React.PropTypes.bool,
 
   /**
    * The region to be displayed by the map.
@@ -210,6 +212,14 @@ MapView.propTypes = {
 
 Here you can see that the shape of the region is explicit in the JS documentation - ideally we could codegen some of this stuff, but that's not happening yet.
 
+Sometimes you'll have some special properties that you need to expose for the native component, but don't actually want them as part of the API for the associated React component.  For example, `Switch` has a custom `onChange` handler for the raw native event, and exposes an `onValueChange` handler property that is invoked with just the boolean value rather than the raw event.  Since you don't want these native only properties to be part of the API, you don't want to put them in `propTypes`, but if you don't you'll get an error.  The solution is simply to call them out via the `nativeOnly` option, e.g.
+
+```javascript
+var RCTSwitch = requireNativeComponent('RCTSwitch', Switch, {
+  nativeOnly: { onChange: true }
+});
+```
+
 ## Events
 
 So now we have a native map component that we can control easily from JS, but how do we deal with events from the user, like pinch-zooms or panning to change the visible region?  The key is to make the `RCTMapManager` a delegate for all the views it vends, and forward the events to JS via the event dispatcher.  This looks like so (simplified from the full implementation):
@@ -245,7 +255,7 @@ RCT_EXPORT_MODULE()
 {
   MKCoordinateRegion region = mapView.region;
   NSDictionary *event = @{
-    @"target": [mapView reactTag],
+    @"target": mapView.reactTag,
     @"region": @{
       @"latitude": @(region.center.latitude),
       @"longitude": @(region.center.longitude),
@@ -257,7 +267,7 @@ RCT_EXPORT_MODULE()
 }
 ```
 
-You can see we're setting the manager as the delegate for every view that it vends, then in the delegate method `-mapView:regionDidChangeAnimated:` the region is combined with the `reactTag` target to make an event that is dispatched to the corresponding React component instance in your application via `sendInputEventWithName:body:`.  The event name `@"topChange"` maps to the `onChange` callback prop in JavaScript (mappings are [here](https://github.com/facebook/react-native/blob/master/React/Modules/RCTUIManager.m#L1146)).  This callback is invoked with the raw event, which we typically process in the wrapper component to make a simpler API:
+You can see we're setting the manager as the delegate for every view that it vends, then in the delegate method `-mapView:regionDidChangeAnimated:` the region is combined with the `reactTag` target to make an event that is dispatched to the corresponding React component instance in your application via `sendInputEventWithName:body:`.  The event name `@"topChange"` maps to the `onChange` callback prop in JavaScript (mappings are [here](https://github.com/facebook/react-native/blob/master/React/Modules/RCTUIManager.m#L1165)).  This callback is invoked with the raw event, which we typically process in the wrapper component to make a simpler API:
 
 ```javascript
 // MapView.js
@@ -292,7 +302,7 @@ Since all our native react views are subclasses of `UIView`, most style attribut
 ```javascript
 // DatePickerIOS.ios.js
 
-var RCTDatePickerIOSConsts = require('NativeModules').UIManager.RCTDatePicker.Constants;
+var RCTDatePickerIOSConsts = require('react-native').NativeModules.UIManager.RCTDatePicker.Constants;
 ...
   render: function() {
     return (
