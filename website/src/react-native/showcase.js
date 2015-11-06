@@ -109,10 +109,22 @@ var apps = [
     author: 'beijing qingfengyun Technology Co., Ltd.',
   },
   {
+    name: 'Harmonizome',
+    icon: 'http://is1.mzstatic.com/image/thumb/Purple6/v4/18/a9/bc/18a9bcde-d2d9-7574-2664-e82fff7b7208/pr_source.png/350x350-75.png',
+    link: 'https://itunes.apple.com/us/app/harmonizome/id1046990905?mt=8',
+    author: 'Michael McDermott (@_mgmcdermott)',
+  },
+  {
     name: 'Hashley',
     icon: 'http://a2.mzstatic.com/us/r30/Purple4/v4/5f/19/fc/5f19fc13-e7af-cd6b-6749-cedabdaeee7d/icon350x350.png',
     link: 'https://itunes.apple.com/us/app/hashtag-by-hashley-ironic/id1022724462?mt=8',
     author: 'Elephant, LLC',
+  },
+  {
+    name: 'Hey, Neighbor!',
+    icon: 'https://raw.githubusercontent.com/scrollback/io.scrollback.neighborhoods/master/android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png',
+    link: 'https://play.google.com/store/apps/details?id=io.scrollback.neighborhoods',
+    author: 'Scrollback',
   },
   {
     name: 'HSK Level 1 Chinese Flashcards',
@@ -155,6 +167,18 @@ var apps = [
     icon: 'http://a5.mzstatic.com/eu/r30/Purple3/v4/fa/5f/4c/fa5f4ce8-5aaa-5a4b-ddcc-a0c6f681d08a/icon175x175.png',
     link: 'https://itunes.apple.com/de/app/makerist-mediathek/id1019504544',
     author: 'Railslove',
+  },
+  {
+    name: 'MaxReward - Android',
+    icon: 'https://lh3.googleusercontent.com/yynCUCdEnyW6T96xCto8KzWQr4Yeiy0M6c2p8auYMIyFgAZVBsjf4JCEX7QkPijhBg=w175-rw',
+    link: 'https://play.google.com/store/apps/details?id=com.bitstrek.maxreward&hl=en',
+    author: 'Neil Ma',
+  },
+  {
+    name: 'MaxReward - iOS',
+    icon: 'https://lh3.googleusercontent.com/yynCUCdEnyW6T96xCto8KzWQr4Yeiy0M6c2p8auYMIyFgAZVBsjf4JCEX7QkPijhBg=w175-rw',
+    link: 'https://itunes.apple.com/us/app/maxreward/id1050479192?ls=1&mt=8',
+    author: 'Neil Ma',
   },
   {
     name: 'MinTrain',

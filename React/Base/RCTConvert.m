@@ -101,7 +101,7 @@ RCT_CUSTOM_CONVERTER(NSData *, NSData, [json dataUsingEncoding:NSUTF8StringEncod
       path = path.stringByExpandingTildeInPath;
     } else if (!path.absolutePath) {
       // Assume it's a resource path
-      path = [[NSBundle bundleForClass:[self class]].resourcePath stringByAppendingPathComponent:path];
+      path = [[NSBundle mainBundle].resourcePath stringByAppendingPathComponent:path];
     }
     if (!(URL = [NSURL fileURLWithPath:path])) {
       RCTLogConvertError(json, @"a valid URL");
@@ -711,6 +711,7 @@ RCT_ARRAY_CONVERTER(UIColor)
 
 RCT_JSON_ARRAY_CONVERTER(NSArray)
 RCT_JSON_ARRAY_CONVERTER(NSString)
+RCT_JSON_ARRAY_CONVERTER(NSStringArray)
 RCT_JSON_ARRAY_CONVERTER(NSDictionary)
 RCT_JSON_ARRAY_CONVERTER(NSNumber)
 
