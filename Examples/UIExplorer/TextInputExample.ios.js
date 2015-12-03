@@ -75,6 +75,11 @@ var TextEventsExample = React.createClass({
           onSubmitEditing={(event) => this.updateText(
             'onSubmitEditing text: ' + event.nativeEvent.text
           )}
+          onSelectionChange={(event) => this.updateText(
+            'onSelectionChange range: ' +
+              event.nativeEvent.selection.start + ',' +
+              event.nativeEvent.selection.end
+          )}
           onKeyPress={(event) => {
             this.updateText('onKeyPress key: ' + event.nativeEvent.key);
           }}
@@ -115,6 +120,60 @@ class RewriteExample extends React.Component {
         <Text style={[styles.remainder, {color: remainderColor}]}>
           {remainder}
         </Text>
+      </View>
+    );
+  }
+}
+
+class TokenizedTextExample extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = {text: 'Hello #World'};
+  }
+  render() {
+
+    //define delimiter
+    let delimiter = /\s+/;
+
+    //split string
+    let _text = this.state.text;
+    let token, index, parts = [];
+    while (_text) {
+      delimiter.lastIndex = 0;
+      token = delimiter.exec(_text);
+      if (token === null) {
+        break;
+      }
+      index = token.index;
+      if (token[0].length === 0) {
+        index = 1;
+      }
+      parts.push(_text.substr(0, index));
+      parts.push(token[0]);
+      index = index + token[0].length;
+      _text = _text.slice(index);
+    }
+    parts.push(_text);
+
+    //highlight hashtags
+    parts = parts.map((text) => {
+      if (/^#/.test(text)) {
+        return <Text style={styles.hashtag}>{text}</Text>;
+      } else {
+        return text;
+      }
+    });
+
+    return (
+      <View>
+        <TextInput
+          multiline={true}
+          style={styles.multiline}
+          onChangeText={(text) => {
+            this.setState({text});
+          }}>
+          <Text>{parts}</Text>
+        </TextInput>
       </View>
     );
   }
@@ -232,6 +291,10 @@ var styles = StyleSheet.create({
     textAlign: 'right',
     width: 24,
   },
+  hashtag: {
+    color: 'blue',
+    fontWeight: 'bold',
+  },
 });
 
 exports.displayName = (undefined: ?string);
@@ -320,6 +383,27 @@ exports.examples = [
           <WithLabel key={type} label={type}>
             <TextInput
               keyboardType={type}
+              style={styles.default}
+            />
+          </WithLabel>
+        );
+      });
+      return <View>{examples}</View>;
+    }
+  },
+  {
+    title: 'Keyboard appearance',
+    render: function() {
+      var keyboardAppearance = [
+        'default',
+        'light',
+        'dark',
+      ];
+      var examples = keyboardAppearance.map((type) => {
+        return (
+          <WithLabel key={type} label={type}>
+            <TextInput
+              keyboardAppearance={type}
               style={styles.default}
             />
           </WithLabel>
@@ -461,6 +545,27 @@ exports.examples = [
     }
   },
   {
+    title: 'Blur on submit',
+    render: function(): ReactElement { return <BlurOnSubmitExample />; },
+  },
+  {
+    title: 'Multiline blur on submit',
+    render: function() {
+      return (
+        <View>
+          <TextInput
+            style={styles.multiline}
+            placeholder='blurOnSubmit = true'
+            returnKeyType='next'
+            blurOnSubmit={true}
+            multiline={true}
+            onSubmitEditing={event => alert(event.nativeEvent.text)}
+          />
+        </View>
+      );
+    }
+  },
+  {
     title: 'Multiline',
     render: function() {
       return (
@@ -499,7 +604,9 @@ exports.examples = [
     }
   },
   {
-    title: 'Blur on submit',
-    render: function(): ReactElement { return <BlurOnSubmitExample />; },
+    title: 'Attributed text',
+    render: function() {
+      return <TokenizedTextExample />;
+    }
   },
 ];

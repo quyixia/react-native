@@ -21,6 +21,7 @@
   BOOL _jsRequestingFirstResponder;
   NSInteger _nativeEventCount;
   BOOL _submitted;
+  UITextRange *_previousSelectionRange;
 }
 
 - (instancetype)initWithEventDispatcher:(RCTEventDispatcher *)eventDispatcher
@@ -28,13 +29,21 @@
   if ((self = [super initWithFrame:CGRectZero])) {
     RCTAssert(eventDispatcher, @"eventDispatcher is a required parameter");
     _eventDispatcher = eventDispatcher;
+    _previousSelectionRange = self.selectedTextRange;
     [self addTarget:self action:@selector(textFieldDidChange) forControlEvents:UIControlEventEditingChanged];
     [self addTarget:self action:@selector(textFieldBeginEditing) forControlEvents:UIControlEventEditingDidBegin];
     [self addTarget:self action:@selector(textFieldEndEditing) forControlEvents:UIControlEventEditingDidEnd];
     [self addTarget:self action:@selector(textFieldSubmitEditing) forControlEvents:UIControlEventEditingDidEndOnExit];
+    [self addObserver:self forKeyPath:@"selectedTextRange" options:0 context:nil];
     _reactSubviews = [NSMutableArray new];
+    _blurOnSubmit = YES;
   }
   return self;
+}
+
+- (void)dealloc
+{
+  [self removeObserver:self forKeyPath:@"selectedTextRange"];
 }
 
 RCT_NOT_IMPLEMENTED(- (instancetype)initWithFrame:(CGRect)frame)
@@ -154,6 +163,10 @@ static void RCTUpdatePlaceholder(RCTTextField *self)
                                      text:self.text
                                       key:nil
                                eventCount:_nativeEventCount];
+
+  // selectedTextRange observer isn't triggered when you type even though the
+  // cursor position moves, so we send event again here.
+  [self sendSelectionEvent];
 }
 
 - (void)textFieldEndEditing
@@ -197,12 +210,49 @@ static void RCTUpdatePlaceholder(RCTTextField *self)
   return YES;
 }
 
-- (BOOL)becomeFirstResponder
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(RCTTextField *)textField
+                        change:(NSDictionary *)change
+                       context:(void *)context
+{
+  if ([keyPath isEqualToString:@"selectedTextRange"]) {
+    [self sendSelectionEvent];
+  }
+}
+
+- (void)sendSelectionEvent
+{
+  if (_onSelectionChange &&
+      self.selectedTextRange != _previousSelectionRange &&
+      ![self.selectedTextRange isEqual:_previousSelectionRange]) {
+
+    _previousSelectionRange = self.selectedTextRange;
+
+    UITextRange *selection = self.selectedTextRange;
+    NSInteger start = [self offsetFromPosition:[self beginningOfDocument] toPosition:selection.start];
+    NSInteger end = [self offsetFromPosition:[self beginningOfDocument] toPosition:selection.end];
+    _onSelectionChange(@{
+      @"selection": @{
+        @"start": @(start),
+        @"end": @(end),
+      },
+    });
+  }
+}
+
+- (BOOL)canBecomeFirstResponder
+{
+  return _jsRequestingFirstResponder;
+}
+
+- (void)reactWillMakeFirstResponder
 {
   _jsRequestingFirstResponder = YES;
-  BOOL result = [super becomeFirstResponder];
+}
+
+- (void)reactDidMakeFirstResponder
+{
   _jsRequestingFirstResponder = NO;
-  return result;
 }
 
 - (BOOL)resignFirstResponder
@@ -217,11 +267,6 @@ static void RCTUpdatePlaceholder(RCTTextField *self)
                                  eventCount:_nativeEventCount];
   }
   return result;
-}
-
-- (BOOL)canBecomeFirstResponder
-{
-  return _jsRequestingFirstResponder;
 }
 
 @end
