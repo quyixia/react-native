@@ -41,7 +41,6 @@ var DatePickerIOS = React.createClass({
   mixins: [NativeMethodsMixin],
 
   propTypes: {
-    ...View.propTypes,
     /**
      * The currently selected date.
      */

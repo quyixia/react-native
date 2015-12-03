@@ -11,24 +11,25 @@ package com.facebook.react.views.progressbar;
 
 import javax.annotation.Nullable;
 
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ProgressBar;
+
 import com.facebook.react.bridge.JSApplicationIllegalArgumentException;
 import com.facebook.react.uimanager.BaseViewManager;
 import com.facebook.react.uimanager.ReactProp;
 import com.facebook.react.uimanager.ThemedReactContext;
-import com.facebook.react.uimanager.ViewProps;
 
 /**
- * Manages instances of ProgressBar. ProgressBar is wrapped in a ProgressBarContainerView because
- * the style of the ProgressBar can only be set in the constructor; whenever the style of a
- * ProgressBar changes, we have to drop the existing ProgressBar (if there is one) and create a new
- * one with the style given.
+ * Manages instances of ProgressBar. ProgressBar is wrapped in a FrameLayout because the style of
+ * the ProgressBar can only be set in the constructor; whenever the style of a ProgressBar changes,
+ * we have to drop the existing ProgressBar (if there is one) and create a new one with the style
+ * given.
  */
 public class ReactProgressBarViewManager extends
-    BaseViewManager<ProgressBarContainerView, ProgressBarShadowNode> {
+    BaseViewManager<FrameLayout, ProgressBarShadowNode> {
 
   /* package */ static final String PROP_STYLE = "styleAttr";
-  /* package */ static final String PROP_INDETERMINATE = "indeterminate";
-  /* package */ static final String PROP_PROGRESS = "progress";
 
   /* package */ static final String REACT_CLASS = "AndroidProgressBar";
   /* package */ static final String DEFAULT_STYLE = "Large";
@@ -39,28 +40,19 @@ public class ReactProgressBarViewManager extends
   }
 
   @Override
-  protected ProgressBarContainerView createViewInstance(ThemedReactContext context) {
-    return new ProgressBarContainerView(context);
+  protected FrameLayout createViewInstance(ThemedReactContext context) {
+    return new FrameLayout(context);
   }
 
   @ReactProp(name = PROP_STYLE)
-  public void setStyle(ProgressBarContainerView view, @Nullable String styleName) {
-    view.setStyle(styleName);
-  }
-
-  @ReactProp(name = ViewProps.COLOR, customType = "Color")
-  public void setColor(ProgressBarContainerView view, @Nullable Integer color) {
-    view.setColor(color);
-  }
-
-  @ReactProp(name = PROP_INDETERMINATE)
-  public void setIndeterminate(ProgressBarContainerView view, boolean indeterminate) {
-    view.setIndeterminate(indeterminate);
-  }
-
-  @ReactProp(name = PROP_PROGRESS)
-  public void setProgress(ProgressBarContainerView view, double progress) {
-    view.setProgress(progress);
+  public void setStyle(FrameLayout view, @Nullable String styleName) {
+    final int style = getStyleFromString(styleName);
+    view.removeAllViews();
+    view.addView(
+        new ProgressBar(view.getContext(), null, style),
+        new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT));
   }
 
   @Override
@@ -74,13 +66,8 @@ public class ReactProgressBarViewManager extends
   }
 
   @Override
-  public void updateExtraData(ProgressBarContainerView root, Object extraData) {
+  public void updateExtraData(FrameLayout root, Object extraData) {
     // do nothing
-  }
-
-  @Override
-  protected void onAfterUpdateTransaction(ProgressBarContainerView view) {
-    view.apply();
   }
 
   /* package */ static int getStyleFromString(@Nullable String styleStr) {

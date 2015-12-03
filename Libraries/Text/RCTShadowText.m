@@ -16,6 +16,7 @@
 #import "RCTImageComponent.h"
 #import "RCTLog.h"
 #import "RCTShadowRawText.h"
+#import "RCTSparseArray.h"
 #import "RCTText.h"
 #import "RCTUtils.h"
 
@@ -80,17 +81,17 @@ static css_dim_t RCTMeasure(void *context, float width)
   [self dirtyText];
 }
 
-- (NSDictionary<NSString *, id> *)processUpdatedProperties:(NSMutableSet<RCTApplierBlock> *)applierBlocks
-                                          parentProperties:(NSDictionary<NSString *, id> *)parentProperties
+- (NSDictionary *)processUpdatedProperties:(NSMutableSet<RCTApplierBlock> *)applierBlocks
+                          parentProperties:(NSDictionary *)parentProperties
 {
   parentProperties = [super processUpdatedProperties:applierBlocks
                                     parentProperties:parentProperties];
 
   UIEdgeInsets padding = self.paddingAsInsets;
   CGFloat width = self.frame.size.width - (padding.left + padding.right);
-
+  
   NSTextStorage *textStorage = [self buildTextStorageForWidth:width];
-  [applierBlocks addObject:^(NSDictionary<NSNumber *, RCTText *> *viewRegistry) {
+  [applierBlocks addObject:^(RCTSparseArray *viewRegistry) {
     RCTText *view = viewRegistry[self.reactTag];
     view.textStorage = textStorage;
   }];

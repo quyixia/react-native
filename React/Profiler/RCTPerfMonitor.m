@@ -22,6 +22,7 @@
 #import "RCTJavaScriptExecutor.h"
 #import "RCTPerformanceLogger.h"
 #import "RCTRootView.h"
+#import "RCTSparseArray.h"
 #import "RCTUIManager.h"
 
 static NSString *const RCTPerfMonitorKey = @"RCTPerfMonitorKey";
@@ -440,10 +441,10 @@ RCT_EXPORT_MODULE()
 
 - (void)updateStats
 {
-  NSDictionary<NSNumber *, UIView *> *views = [_bridge.uiManager valueForKey:@"viewRegistry"];
+  RCTSparseArray *views = [_bridge.uiManager valueForKey:@"viewRegistry"];
   NSUInteger viewCount = views.count;
   NSUInteger visibleViewCount = 0;
-  for (UIView *view in views.allValues) {
+  for (UIView *view in views.allObjects) {
     if (view.window || view.superview.window) {
       visibleViewCount++;
     }

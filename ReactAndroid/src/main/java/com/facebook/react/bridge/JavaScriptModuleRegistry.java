@@ -30,7 +30,7 @@ import com.facebook.infer.annotation.Assertions;
   private final HashMap<Class<? extends JavaScriptModule>, JavaScriptModule> mModuleInstances;
 
   public JavaScriptModuleRegistry(
-      CatalystInstanceImpl instance,
+      CatalystInstance instance,
       JavaScriptModulesConfig config) {
     mModuleInstances = new HashMap<>();
     for (JavaScriptModuleRegistration registration : config.getModuleDefinitions()) {
@@ -52,11 +52,11 @@ import com.facebook.infer.annotation.Assertions;
 
   private static class JavaScriptModuleInvocationHandler implements InvocationHandler {
 
-    private final CatalystInstanceImpl mCatalystInstance;
+    private final CatalystInstance mCatalystInstance;
     private final JavaScriptModuleRegistration mModuleRegistration;
 
     public JavaScriptModuleInvocationHandler(
-        CatalystInstanceImpl catalystInstance,
+        CatalystInstance catalystInstance,
         JavaScriptModuleRegistration moduleRegistration) {
       mCatalystInstance = catalystInstance;
       mModuleRegistration = moduleRegistration;

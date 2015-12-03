@@ -9,8 +9,6 @@
 'use strict';
 
 function ModuleTransport(data) {
-  this.name = data.name;
-
   assertExists(data, 'code');
   this.code = data.code;
 

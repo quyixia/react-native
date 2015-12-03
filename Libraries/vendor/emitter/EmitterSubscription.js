@@ -13,7 +13,6 @@
  * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
  * @providesModule EmitterSubscription
- * @noflow
  * @typechecks
  */
 'use strict';

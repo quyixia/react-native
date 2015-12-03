@@ -13,8 +13,7 @@
 
 @protocol RCTRootViewDelegate <NSObject>
 /**
- * Called after the root view's content is updated to a new size. The method is not called
- * when both old size and new size have a dimension that equals to zero.
+ * Called after the root view's content is updated to a new size.
  *
  * The delegate can use this callback to appropriately resize the root view frame to fit the new
  * content view size. The view will not resize itself. The new content size is available via the

@@ -15,7 +15,7 @@
  */
 @protocol RCTScrollableProtocol
 
-@property (nonatomic, weak) NSObject<UIScrollViewDelegate> *nativeScrollDelegate;
+@property (nonatomic, weak) NSObject<UIScrollViewDelegate> *nativeMainScrollDelegate;
 @property (nonatomic, readonly) CGSize contentSize;
 
 - (void)scrollToOffset:(CGPoint)offset;

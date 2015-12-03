@@ -237,7 +237,7 @@ var styles = StyleSheet.create({
     marginBottom: 20,
   },
   tryAgain: {
-    backgroundColor: '#887761',
+    backgroundColor: '#887766',
     padding: 20,
     borderRadius: 5,
   },

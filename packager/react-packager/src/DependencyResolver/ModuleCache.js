@@ -7,12 +7,11 @@ const path = require('path');
 
 class ModuleCache {
 
-  constructor(fastfs, cache, extractRequires) {
+  constructor(fastfs, cache) {
     this._moduleCache = Object.create(null);
     this._packageCache = Object.create(null);
     this._fastfs = fastfs;
     this._cache = cache;
-    this._extractRequires = extractRequires;
     fastfs.on('change', this._processFileChange.bind(this));
   }
 
@@ -24,7 +23,6 @@ class ModuleCache {
         this._fastfs,
         this,
         this._cache,
-        this._extractRequires
       );
     }
     return this._moduleCache[filePath];
@@ -45,7 +43,7 @@ class ModuleCache {
 
   getPackage(filePath) {
     filePath = path.resolve(filePath);
-    if (!this._packageCache[filePath]) {
+    if (!this._packageCache[filePath]){
       this._packageCache[filePath] = new Package(
         filePath,
         this._fastfs,

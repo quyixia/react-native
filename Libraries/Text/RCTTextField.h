@@ -9,8 +9,6 @@
 
 #import <UIKit/UIKit.h>
 
-#import "RCTComponent.h"
-
 @class RCTEventDispatcher;
 
 @interface RCTTextField : UITextField
@@ -24,8 +22,6 @@
 @property (nonatomic, assign) NSInteger mostRecentEventCount;
 @property (nonatomic, strong) NSNumber *maxLength;
 @property (nonatomic, assign) BOOL textWasPasted;
-
-@property (nonatomic, copy) RCTDirectEventBlock onSelectionChange;
 
 - (instancetype)initWithEventDispatcher:(RCTEventDispatcher *)eventDispatcher NS_DESIGNATED_INITIALIZER;
 

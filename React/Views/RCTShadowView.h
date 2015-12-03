@@ -21,7 +21,7 @@ typedef NS_ENUM(NSUInteger, RCTUpdateLifecycle) {
   RCTUpdateLifecycleDirtied,
 };
 
-typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry);
+typedef void (^RCTApplierBlock)(RCTSparseArray *viewRegistry);
 
 /**
  * ShadowView tree mirrors RCT view tree. Every node is highly stateful.
@@ -63,10 +63,6 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
 
 @property (nonatomic, assign) CGFloat width;
 @property (nonatomic, assign) CGFloat height;
-@property (nonatomic, assign) CGFloat minWidth;
-@property (nonatomic, assign) CGFloat minHeight;
-@property (nonatomic, assign) CGFloat maxWidth;
-@property (nonatomic, assign) CGFloat maxHeight;
 @property (nonatomic, assign) CGRect frame;
 
 - (void)setTopLeft:(CGPoint)topLeft;
@@ -128,20 +124,20 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
  * on the main thread in order to update the view.
  */
 - (void)collectUpdatedProperties:(NSMutableSet<RCTApplierBlock> *)applierBlocks
-                parentProperties:(NSDictionary<NSString *, id> *)parentProperties;
+                parentProperties:(NSDictionary *)parentProperties;
 
 /**
  * Process the updated properties and apply them to view. Shadow view classes
  * that add additional propagating properties should override this method.
  */
-- (NSDictionary<NSString *, id> *)processUpdatedProperties:(NSMutableSet<RCTApplierBlock> *)applierBlocks
-                                          parentProperties:(NSDictionary<NSString *, id> *)parentProperties NS_REQUIRES_SUPER;
+- (NSDictionary *)processUpdatedProperties:(NSMutableSet<RCTApplierBlock> *)applierBlocks
+                          parentProperties:(NSDictionary *)parentProperties NS_REQUIRES_SUPER;
 
 /**
  * Calculate all views whose frame needs updating after layout has been calculated.
- * Returns a set contains the shadowviews that need updating.
+ * The viewsWithNewFrame set contains the reactTags of the views that need updating.
  */
-- (NSSet<RCTShadowView *> *)collectRootUpdatedFrames;
+- (void)collectRootUpdatedFrames:(NSMutableSet<RCTShadowView *> *)viewsWithNewFrame;
 
 /**
  * Recursively apply layout to children.
@@ -164,7 +160,10 @@ typedef void (^RCTApplierBlock)(NSDictionary<NSNumber *, UIView *> *viewRegistry
 - (void)setTextComputed NS_REQUIRES_SUPER;
 - (BOOL)isTextDirty;
 
-- (void)didSetProps:(NSArray<NSString *> *)changedProps NS_REQUIRES_SUPER;
+/**
+ * Triggers a recalculation of the shadow view's layout.
+ */
+- (void)updateLayout NS_REQUIRES_SUPER;
 
 /**
  * Computes the recursive offset, meaning the sum of all descendant offsets -

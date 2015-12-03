@@ -97,12 +97,14 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
 RCT_EXPORT_MODULE()
 
-- (void)setBridge:(RCTBridge *)bridge
+- (instancetype)init
 {
-  _bridge = bridge;
-  _paused = YES;
-  _eventQueue = [NSMutableDictionary new];
-  _eventQueueLock = [NSLock new];
+  if ((self = [super init])) {
+    _paused = YES;
+    _eventQueue = [NSMutableDictionary new];
+    _eventQueueLock = [NSLock new];
+  }
+  return self;
 }
 
 - (void)setPaused:(BOOL)paused

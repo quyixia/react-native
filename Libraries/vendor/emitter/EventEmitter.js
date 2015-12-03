@@ -1,13 +1,18 @@
 /**
- * Copyright (c) 2015-present, Facebook, Inc.
- * All rights reserved.
+ * @generated SignedSource<<494e66dea72a3e90b763a5ec50b1e0ca>>
  *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
+ * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ * !! This file is a check-in of a static_upstream project!      !!
+ * !!                                                            !!
+ * !! You should not modify this file directly. Instead:         !!
+ * !! 1) Use `fjs use-upstream` to temporarily replace this with !!
+ * !!    the latest version from upstream.                       !!
+ * !! 2) Make your changes, test them, etc.                      !!
+ * !! 3) Use `fjs push-upstream` to copy your changes back to    !!
+ * !!    static_upstream.                                        !!
+ * !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
  *
  * @providesModule EventEmitter
- * @noflow
  * @typechecks
  */
 
@@ -159,9 +164,13 @@ class EventEmitter {
         // The subscription may have been removed during this event loop.
         if (subscription) {
           this._currentSubscription = subscription;
-          subscription.listener.apply(
+
+          ErrorUtils.applyWithGuard(
+            subscription.listener,
             subscription.context,
-            Array.prototype.slice.call(arguments, 1)
+            Array.prototype.slice.call(arguments, 1),
+            null,
+            'EventEmitter:' + eventType
           );
         }
       }

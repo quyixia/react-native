@@ -3,7 +3,7 @@
 #pragma once
 
 #include <jni/fbjni.h>
-#include <folly/dynamic.h>
+#include <react/MethodCall.h>
 
 namespace facebook {
 namespace react {

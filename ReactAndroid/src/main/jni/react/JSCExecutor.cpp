@@ -8,9 +8,7 @@
 #include <fb/log.h>
 #include <folly/json.h>
 #include <folly/String.h>
-#include <jni/fbjni/Exceptions.h>
 #include "Value.h"
-#include "jni/OnLoad.h"
 
 #ifdef WITH_JSC_EXTRA_TRACING
 #include <react/JSCTracing.h>
@@ -25,12 +23,6 @@ using fbsystrace::FbSystraceSection;
 
 // Add native performance markers support
 #include <react/JSCPerfLogging.h>
-
-#ifdef WITH_FB_JSC_TUNING
-#include <jsc_config_android.h>
-#endif
-
-using namespace facebook::jni;
 
 namespace facebook {
 namespace react {
@@ -61,17 +53,6 @@ static JSValueRef evaluateScriptWithJSC(
     JSValueProtect(ctx, exn);
     std::string exceptionText = Value(ctx, exn).toString().str();
     FBLOGE("Got JS Exception: %s", exceptionText.c_str());
-    auto line = Value(ctx, JSObjectGetProperty(ctx,
-      JSValueToObject(ctx, exn, nullptr),
-      JSStringCreateWithUTF8CString("line"), nullptr
-    ));
-    std::ostringstream lineInfo;
-    if (line != nullptr && line.isNumber()) {
-      lineInfo << " (line " << line.asInteger() << " in the generated bundle)";
-    } else {
-      lineInfo << " (no line info)";
-    }
-    throwNewJavaException("com/facebook/react/bridge/JSExecutionException", (exceptionText + lineInfo.str()).c_str());
   }
   return result;
 }
@@ -86,11 +67,6 @@ JSCExecutor::JSCExecutor(FlushImmediateCallback cb) :
   s_globalContextRefToJSCExecutor[m_context] = this;
   installGlobalFunction(m_context, "nativeFlushQueueImmediate", nativeFlushQueueImmediate);
   installGlobalFunction(m_context, "nativeLoggingHook", nativeLoggingHook);
-
-  #ifdef WITH_FB_JSC_TUNING
-  configureJSCForAndroid();
-  #endif
-
   #ifdef WITH_JSC_EXTRA_TRACING
   addNativeTracingHooks(m_context);
   addNativeProfilingHooks(m_context);
@@ -106,19 +82,7 @@ JSCExecutor::~JSCExecutor() {
 void JSCExecutor::executeApplicationScript(
     const std::string& script,
     const std::string& sourceURL) {
-  JNIEnv* env = Environment::current();
-  jclass markerClass = env->FindClass("com/facebook/react/bridge/ReactMarker");
-  jmethodID logMarkerMethod = facebook::react::getLogMarkerMethod();
-  jstring startStringMarker = env->NewStringUTF("executeApplicationScript_startStringConvert");
-  jstring endStringMarker = env->NewStringUTF("executeApplicationScript_endStringConvert");
-
-  env->CallStaticVoidMethod(markerClass, logMarkerMethod, startStringMarker);
   String jsScript(script.c_str());
-  env->CallStaticVoidMethod(markerClass, logMarkerMethod, endStringMarker);
-
-  env->DeleteLocalRef(startStringMarker);
-  env->DeleteLocalRef(endStringMarker);
-
   String jsSourceURL(sourceURL.c_str());
   #ifdef WITH_FBSYSTRACE
   FbSystraceSection s(TRACE_TAG_REACT_CXX_BRIDGE, "JSCExecutor::executeApplicationScript",
@@ -230,7 +194,7 @@ static JSValueRef nativeLoggingHook(
     // The lowest log level we get from JS is 0. We shift and cap it to be
     // in the range the Android logging method expects.
     logLevel = std::min(
-        static_cast<android_LogPriority>(level + ANDROID_LOG_DEBUG),
+        static_cast<android_LogPriority>(level + ANDROID_LOG_VERBOSE),
         ANDROID_LOG_FATAL);
   }
   if (argumentCount > 0) {

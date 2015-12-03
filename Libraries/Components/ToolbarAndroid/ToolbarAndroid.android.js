@@ -13,11 +13,10 @@
 
 var Image = require('Image');
 var NativeMethodsMixin = require('NativeMethodsMixin');
+var RCTUIManager = require('NativeModules').UIManager;
 var React = require('React');
 var ReactNativeViewAttributes = require('ReactNativeViewAttributes');
 var ReactPropTypes = require('ReactPropTypes');
-var UIManager = require('UIManager');
-var View = require('View');
 
 var requireNativeComponent = require('requireNativeComponent');
 var resolveAssetSource = require('resolveAssetSource');
@@ -68,7 +67,6 @@ var ToolbarAndroid = React.createClass({
   mixins: [NativeMethodsMixin],
 
   propTypes: {
-    ...View.propTypes,
     /**
      * Sets possible actions on the toolbar as part of the action menu. These are displayed as icons
      * or text on the right side of the widget. If they don't fit they are placed in an 'overflow'
@@ -145,7 +143,7 @@ var ToolbarAndroid = React.createClass({
       nativeProps.overflowIcon = resolveAssetSource(this.props.overflowIcon);
     }
     if (this.props.actions) {
-      var nativeActions = [];
+      nativeProps.actions = [];
       for (var i = 0; i < this.props.actions.length; i++) {
         var action = {
           ...this.props.actions[i],
@@ -154,11 +152,10 @@ var ToolbarAndroid = React.createClass({
           action.icon = resolveAssetSource(action.icon);
         }
         if (action.show) {
-          action.show = UIManager.ToolbarAndroid.Constants.ShowAsAction[action.show];
+          action.show = RCTUIManager.ToolbarAndroid.Constants.ShowAsAction[action.show];
         }
-        nativeActions.push(action);
+        nativeProps.actions.push(action);
       }
-      nativeProps.nativeActions = nativeActions;
     }
 
     return <NativeToolbar onSelect={this._onSelect} {...nativeProps} />;
@@ -186,10 +183,6 @@ var toolbarAttributes = {
   titleColor: true,
 };
 
-var NativeToolbar = requireNativeComponent('ToolbarAndroid', ToolbarAndroid, {
-  nativeOnly: {
-    nativeActions: true,
-  }
-});
+var NativeToolbar = requireNativeComponent('ToolbarAndroid', null);
 
 module.exports = ToolbarAndroid;

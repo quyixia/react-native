@@ -96,39 +96,23 @@ var ViewPagerAndroidExample = React.createClass({
     description: 'Container that allows to flip left and right between child views.'
   },
   getInitialState: function() {
-    return {
-      page: 0,
-      animationsAreEnabled: true,
-      progress: {
-        position: 0,
-        offset: 0,
-      },
-    };
+    return {page: 0, progress: {position: 0, offset: 0}};
   },
-
   onPageSelected: function(e) {
     this.setState({page: e.nativeEvent.position});
   },
-
   onPageScroll: function(e) {
     this.setState({progress: e.nativeEvent});
   },
-
   move: function(delta) {
     var page = this.state.page + delta;
-    this.go(page);
-  },
-
-  go: function(page) {
-    if (this.state.animationsAreEnabled) {
-      this.viewPager.setPage(page);
-    } else {
-      this.viewPager.setPageWithoutAnimation(page);
-    }
-
+    this.viewPager && this.viewPager.setPage(page);
     this.setState({page});
   },
-
+  go: function(page) {
+    this.viewPager && this.viewPager.setPage(page);
+    this.setState({page});
+  },
   render: function() {
     var pages = [];
     for (var i = 0; i < PAGES; i++) {
@@ -147,7 +131,7 @@ var ViewPagerAndroidExample = React.createClass({
        </View>
       );
     }
-    var { page, animationsAreEnabled } = this.state;
+    var page = this.state.page;
     return (
       <View style={styles.container}>
         <ViewPagerAndroid
@@ -158,19 +142,6 @@ var ViewPagerAndroidExample = React.createClass({
           ref={viewPager => { this.viewPager = viewPager; }}>
           {pages}
         </ViewPagerAndroid>
-        <View style={styles.buttons}>
-          { animationsAreEnabled ?
-            <Button
-              text="Turn off animations"
-              enabled={true}
-              onPress={() => this.setState({animationsAreEnabled: false})}
-            /> :
-            <Button
-              text="Turn animations back on"
-              enabled={true}
-              onPress={() => this.setState({animationsAreEnabled: true})}
-            /> }
-        </View>
         <View style={styles.buttons}>
           <Button text="Start" enabled={page > 0} onPress={() => this.go(0)}/>
           <Button text="Prev" enabled={page > 0} onPress={() => this.move(-1)}/>

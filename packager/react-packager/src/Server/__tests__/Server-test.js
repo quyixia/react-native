@@ -115,7 +115,6 @@ describe('processRequest', () => {
         dev: true,
         platform: undefined,
         runBeforeMainModule: ['InitializeJavaScriptAppEngine'],
-        unbundle: false,
       });
     });
   });
@@ -135,7 +134,6 @@ describe('processRequest', () => {
         dev: true,
         platform: 'ios',
         runBeforeMainModule: ['InitializeJavaScriptAppEngine'],
-        unbundle: false,
       });
     });
   });
@@ -276,7 +274,6 @@ describe('processRequest', () => {
           dev: true,
           platform: undefined,
           runBeforeMainModule: ['InitializeJavaScriptAppEngine'],
-          unbundle: false,
         })
       );
     });
@@ -295,7 +292,6 @@ describe('processRequest', () => {
             dev: false,
             platform: undefined,
             runBeforeMainModule: ['InitializeJavaScriptAppEngine'],
-            unbundle: false,
           })
         );
     });

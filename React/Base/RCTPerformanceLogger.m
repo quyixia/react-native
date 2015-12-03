@@ -79,14 +79,15 @@ RCT_EXPORT_MODULE()
 
 @synthesize bridge = _bridge;
 
-- (void)setBridge:(RCTBridge *)bridge
+- (instancetype)init
 {
-  _bridge = bridge;
-
-  [[NSNotificationCenter defaultCenter] addObserver:self
-                                           selector:@selector(sendTimespans)
-                                               name:RCTContentDidAppearNotification
-                                             object:nil];
+  if ((self = [super init])) {
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(sendTimespans)
+                                                 name:RCTContentDidAppearNotification
+                                               object:nil];
+  }
+  return self;
 }
 
 - (void)dealloc

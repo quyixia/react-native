@@ -31,12 +31,12 @@ public class DrawableWithIntrinsicSize extends ForwardingDrawable implements Dra
 
   @Override
   public int getIntrinsicWidth() {
-    return mImageInfo.getWidth();
+    return (int) PixelUtil.toDIPFromPixel(mImageInfo.getWidth());
   }
 
   @Override
   public int getIntrinsicHeight() {
-    return mImageInfo.getHeight();
+    return (int) PixelUtil.toDIPFromPixel(mImageInfo.getHeight());
   }
 
 }

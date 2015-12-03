@@ -15,7 +15,6 @@
 #import "RCTShadowView.h"
 #import "RCTUtils.h"
 #import "RCTViewManager.h"
-#import "UIView+React.h"
 
 typedef void (^RCTPropBlock)(id<RCTComponent> view, id json);
 
@@ -42,23 +41,18 @@ typedef void (^RCTPropBlock)(id<RCTComponent> view, id json);
 {
   id<RCTComponent> _defaultView;
   RCTShadowView *_defaultShadowView;
-  NSMutableDictionary<NSString *, RCTPropBlock> *_viewPropBlocks;
-  NSMutableDictionary<NSString *, RCTPropBlock> *_shadowPropBlocks;
-  RCTBridge *_bridge;
+  NSMutableDictionary *_viewPropBlocks;
+  NSMutableDictionary *_shadowPropBlocks;
 }
 
-@synthesize manager = _manager;
-
-- (instancetype)initWithManagerClass:(Class)managerClass
-                              bridge:(RCTBridge *)bridge
+- (instancetype)initWithManager:(RCTViewManager *)manager
 {
   if ((self = [super init])) {
-    _bridge = bridge;
-    _managerClass = managerClass;
+    _manager = manager;
     _viewPropBlocks = [NSMutableDictionary new];
     _shadowPropBlocks = [NSMutableDictionary new];
 
-    _name = RCTBridgeModuleNameForClass(_managerClass);
+    _name = RCTBridgeModuleNameForClass([manager class]);
     RCTAssert(_name.length, @"Invalid moduleName '%@'", _name);
     if ([_name hasSuffix:@"Manager"]) {
       _name = [_name substringToIndex:_name.length - @"Manager".length];
@@ -67,31 +61,25 @@ typedef void (^RCTPropBlock)(id<RCTComponent> view, id json);
   return self;
 }
 
-- (RCTViewManager *)manager
-{
-  if (!_manager) {
-    _manager = [_bridge moduleForClass:_managerClass];
-  }
-  return _manager;
-}
-
 RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
-- (UIView *)createViewWithTag:(NSNumber *)tag props:(NSDictionary<NSString *, id> *)props
+- (id<RCTComponent>)createViewWithTag:(NSNumber *)tag props:(NSDictionary *)props
 {
   RCTAssertMainThread();
 
-  UIView *view = (UIView *)(props ? [self.manager viewWithProps:props] : [_manager view]);
+  id<RCTComponent> view = (id<RCTComponent>)(props ? [_manager viewWithProps:props] : [_manager view]);
   view.reactTag = tag;
-  view.multipleTouchEnabled = YES;
-  view.userInteractionEnabled = YES; // required for touch handling
-  view.layer.allowsGroupOpacity = YES; // required for touch handling
+  if ([view isKindOfClass:[UIView class]]) {
+    ((UIView *)view).multipleTouchEnabled = YES;
+    ((UIView *)view).userInteractionEnabled = YES; // required for touch handling
+    ((UIView *)view).layer.allowsGroupOpacity = YES; // required for touch handling
+  }
   return view;
 }
 
 - (RCTShadowView *)createShadowViewWithTag:(NSNumber *)tag
 {
-  RCTShadowView *shadowView = [self.manager shadowView];
+  RCTShadowView *shadowView = [_manager shadowView];
   shadowView.reactTag = tag;
   shadowView.viewName = _name;
   return shadowView;
@@ -100,7 +88,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 - (RCTPropBlock)propBlockForKey:(NSString *)name defaultView:(id)defaultView
 {
   BOOL shadowView = [defaultView isKindOfClass:[RCTShadowView class]];
-  NSMutableDictionary<NSString *, RCTPropBlock> *propBlocks = shadowView ? _shadowPropBlocks : _viewPropBlocks;
+  NSMutableDictionary *propBlocks = shadowView ? _shadowPropBlocks : _viewPropBlocks;
   RCTPropBlock propBlock = propBlocks[name];
   if (!propBlock) {
 
@@ -289,7 +277,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
   return propBlock;
 }
 
-- (void)setProps:(NSDictionary<NSString *, id> *)props forView:(id<RCTComponent>)view
+- (void)setProps:(NSDictionary *)props forView:(id<RCTComponent>)view
 {
   if (!view) {
     return;
@@ -302,13 +290,9 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
   [props enumerateKeysAndObjectsUsingBlock:^(NSString *key, id json, __unused BOOL *stop) {
     [self propBlockForKey:key defaultView:_defaultView](view, json);
   }];
-
-  if ([view respondsToSelector:@selector(didSetProps:)]) {
-    [view didSetProps:[props allKeys]];
-  }
 }
 
-- (void)setProps:(NSDictionary<NSString *, id> *)props forShadowView:(RCTShadowView *)shadowView
+- (void)setProps:(NSDictionary *)props forShadowView:(RCTShadowView *)shadowView
 {
   if (!shadowView) {
     return;
@@ -322,20 +306,20 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
     [self propBlockForKey:key defaultView:_defaultShadowView](shadowView, json);
   }];
 
-  if ([shadowView respondsToSelector:@selector(didSetProps:)]) {
-    [shadowView didSetProps:[props allKeys]];
-  }
+  [shadowView updateLayout];
 }
 
-- (NSDictionary<NSString *, id> *)viewConfig
+- (NSDictionary *)viewConfig
 {
+  Class managerClass = [_manager class];
+
   NSMutableArray<NSString *> *directEvents = [NSMutableArray new];
-  if (RCTClassOverridesInstanceMethod(_managerClass, @selector(customDirectEventTypes))) {
-    NSArray<NSString *> *events = [self.manager customDirectEventTypes];
+  if (RCTClassOverridesInstanceMethod(managerClass, @selector(customDirectEventTypes))) {
+    NSArray<NSString *> *events = [_manager customDirectEventTypes];
     if (RCT_DEBUG) {
       RCTAssert(!events || [events isKindOfClass:[NSArray class]],
         @"customDirectEventTypes must return an array, but %@ returned %@",
-        _managerClass, [events class]);
+        managerClass, [events class]);
     }
     for (NSString *event in events) {
       [directEvents addObject:RCTNormalizeInputEventName(event)];
@@ -343,12 +327,12 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
   }
 
   NSMutableArray<NSString *> *bubblingEvents = [NSMutableArray new];
-  if (RCTClassOverridesInstanceMethod(_managerClass, @selector(customBubblingEventTypes))) {
-    NSArray<NSString *> *events = [self.manager customBubblingEventTypes];
+  if (RCTClassOverridesInstanceMethod(managerClass, @selector(customBubblingEventTypes))) {
+    NSArray<NSString *> *events = [_manager customBubblingEventTypes];
     if (RCT_DEBUG) {
       RCTAssert(!events || [events isKindOfClass:[NSArray class]],
         @"customBubblingEventTypes must return an array, but %@ returned %@",
-        _managerClass, [events class]);
+        managerClass, [events class]);
     }
     for (NSString *event in events) {
       [bubblingEvents addObject:RCTNormalizeInputEventName(event)];
@@ -357,7 +341,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
   unsigned int count = 0;
   NSMutableDictionary *propTypes = [NSMutableDictionary new];
-  Method *methods = class_copyMethodList(object_getClass(_managerClass), &count);
+  Method *methods = class_copyMethodList(object_getClass(managerClass), &count);
   for (unsigned int i = 0; i < count; i++) {
     Method method = methods[i];
     SEL selector = method_getName(method);
@@ -366,7 +350,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
       NSRange nameRange = [methodName rangeOfString:@"_"];
       if (nameRange.length) {
         NSString *name = [methodName substringFromIndex:nameRange.location + 1];
-        NSString *type = ((NSArray<NSString *> *(*)(id, SEL))objc_msgSend)(_managerClass, selector)[0];
+        NSString *type = ((NSArray<NSString *> *(*)(id, SEL))objc_msgSend)(managerClass, selector)[0];
         if (RCT_DEBUG && propTypes[name] && ![propTypes[name] isEqualToString:type]) {
           RCTLogError(@"Property '%@' of component '%@' redefined from '%@' "
                       "to '%@'", name, _name, propTypes[name], type);

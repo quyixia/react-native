@@ -23,7 +23,7 @@
 
 @interface RCTExceptionsManager : NSObject <RCTBridgeModule>
 
-- (instancetype)initWithDelegate:(id<RCTExceptionsManagerDelegate>)delegate;
+- (instancetype)initWithDelegate:(id<RCTExceptionsManagerDelegate>)delegate NS_DESIGNATED_INITIALIZER;
 
 @property (nonatomic, assign) NSUInteger maxReloadAttempts;
 

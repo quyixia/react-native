@@ -7,7 +7,6 @@
 #include <jsc_legacy_profiler.h>
 #include "JSCHelpers.h"
 #include "JSCLegacyProfiler.h"
-#include "Value.h"
 
 static JSValueRef nativeProfilerStart(
     JSContextRef ctx,
@@ -21,7 +20,7 @@ static JSValueRef nativeProfilerStart(
     return JSValueMakeUndefined(ctx);
   }
 
-  JSStringRef title = JSValueToStringCopy(ctx, arguments[0], exception);
+  JSStringRef title = JSValueToStringCopy(ctx, arguments[0], NULL);
   JSStartProfiling(ctx, title);
   JSStringRelease(title);
   return JSValueMakeUndefined(ctx);
@@ -39,16 +38,8 @@ static JSValueRef nativeProfilerEnd(
     return JSValueMakeUndefined(ctx);
   }
 
-  std::string writeLocation("/sdcard/");
-  if (argumentCount > 1) {
-    JSStringRef fileName = JSValueToStringCopy(ctx, arguments[1], exception);
-    writeLocation += facebook::react::String::ref(fileName).str();
-    JSStringRelease(fileName);
-  } else {
-    writeLocation += "profile.json";
-  }
-  JSStringRef title = JSValueToStringCopy(ctx, arguments[0], exception);
-  JSEndProfilingAndRender(ctx, title, writeLocation.c_str());
+  JSStringRef title = JSValueToStringCopy(ctx, arguments[0], NULL);
+  JSEndProfilingAndRender(ctx, title, "/sdcard/profile.json");
   JSStringRelease(title);
   return JSValueMakeUndefined(ctx);
 }

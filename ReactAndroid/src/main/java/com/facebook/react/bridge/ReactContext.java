@@ -146,6 +146,7 @@ public class ReactContext extends ContextWrapper {
    */
   public void onPause() {
     UiThreadUtil.assertOnUiThread();
+    mCurrentActivity = null;
     for (LifecycleEventListener listener : mLifecycleEventListeners) {
       listener.onHostPause();
     }
@@ -162,7 +163,6 @@ public class ReactContext extends ContextWrapper {
     if (mCatalystInstance != null) {
       mCatalystInstance.destroy();
     }
-    mCurrentActivity = null;
   }
 
   /**
@@ -225,27 +225,12 @@ public class ReactContext extends ContextWrapper {
     }
   }
 
-  public boolean hasCurrentActivity() {
-    return mCurrentActivity != null;
-  }
-
   /**
    * Same as {@link Activity#startActivityForResult(Intent, int)}, this just redirects the call to
-   * the current activity. Returns whether the activity was started, as this might fail if this
-   * was called before the context is in the right state.
+   * the current activity.
    */
-  public boolean startActivityForResult(Intent intent, int code, Bundle bundle) {
+  public void startActivityForResult(Intent intent, int code, Bundle bundle) {
     Assertions.assertNotNull(mCurrentActivity);
     mCurrentActivity.startActivityForResult(intent, code, bundle);
-    return true;
-  }
-
-  /**
-   * Get the activity to which this context is currently attached, or {@code null} if not attached.
-   * DO NOT HOLD LONG-LIVED REFERENCES TO THE OBJECT RETURNED BY THIS METHOD, AS THIS WILL CAUSE
-   * MEMORY LEAKS.
-   */
-  /* package */ @Nullable Activity getCurrentActivity() {
-    return mCurrentActivity;
   }
 }

@@ -13,7 +13,7 @@ jest.autoMockOff();
 var path = require('path');
 var fs = require('fs');
 
-xdescribe('React Yeoman Generators', function() {
+describe('React Yeoman Generators', function() {
   describe('react:react', function() {
     var assert;
 

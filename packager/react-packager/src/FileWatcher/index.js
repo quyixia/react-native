@@ -72,7 +72,6 @@ class FileWatcher extends EventEmitter {
   }
 
   end() {
-    inited = false;
     return this._loading.then(
       (watchers) => watchers.map(
         watcher => Promise.denodeify(watcher.close).call(watcher)

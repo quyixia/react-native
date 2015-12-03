@@ -22,7 +22,7 @@ import com.fasterxml.jackson.core.JsonGenerator;
  * register themselves using {@link CxxModuleWrapper}.
  */
 public interface NativeModule {
-  interface NativeMethod {
+  public static interface NativeMethod {
     void invoke(CatalystInstance catalystInstance, ReadableNativeArray parameters);
     String getType();
   }
@@ -31,36 +31,28 @@ public interface NativeModule {
    * @return the name of this module. This will be the name used to {@code require()} this module
    * from javascript.
    */
-  String getName();
+  public String getName();
 
   /**
    * @return methods callable from JS on this module
    */
-  Map<String, NativeMethod> getMethods();
+  public Map<String, NativeMethod> getMethods();
 
   /**
    * Append a field which represents the constants this module exports
    * to JS.  If no constants are exported this should do nothing.
    */
-  void writeConstantsField(JsonGenerator jg, String fieldName) throws IOException;
+  public void writeConstantsField(JsonGenerator jg, String fieldName) throws IOException;
 
   /**
    * This is called at the end of {@link CatalystApplicationFragment#createCatalystInstance()}
    * after the CatalystInstance has been created, in order to initialize NativeModules that require
    * the CatalystInstance or JS modules.
    */
-  void initialize();
-
-  /**
-   * Return true if you intend to override some other native module that was registered e.g. as part
-   * of a different package (such as the core one). Trying to override without returning true from
-   * this method is considered an error and will throw an exception during initialization. By
-   * default all modules return false.
-   */
-  boolean canOverrideExistingModule();
+  public void initialize();
 
   /**
    * Called before {CatalystInstance#onHostDestroy}
    */
-  void onCatalystInstanceDestroy();
+  public void onCatalystInstanceDestroy();
 }

@@ -35,10 +35,6 @@ function _server(argv, config, resolve, reject) {
     type: 'string',
     description: 'add another root(s) to be used by the packager in this project',
   }, {
-    command: 'projectRoots',
-    type: 'string',
-    description: 'override the root(s) to be used by the packager',
-  },{
     command: 'assetRoots',
     type: 'string',
     description: 'specify the root directories of app assets'
@@ -79,7 +75,7 @@ function _server(argv, config, resolve, reject) {
   }
 
   args.assetRoots = args.assetRoots
-    ? argToArray(args.assetRoots).map(dir =>
+    ? argToArray(args.projectRoots).map(dir =>
       path.resolve(process.cwd(), dir)
     )
     : config.getAssetRoots();

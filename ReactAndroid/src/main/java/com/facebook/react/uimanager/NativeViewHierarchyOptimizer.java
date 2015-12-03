@@ -69,15 +69,11 @@ public class NativeViewHierarchyOptimizer {
    */
   public void handleCreateView(
       ReactShadowNode node,
-      ThemedReactContext themedContext,
+      int rootViewTag,
       @Nullable CatalystStylesDiffMap initialProps) {
     if (!ENABLED) {
       int tag = node.getReactTag();
-      mUIViewOperationQueue.enqueueCreateView(
-          themedContext,
-          tag,
-          node.getViewClass(),
-          initialProps);
+      mUIViewOperationQueue.enqueueCreateView(rootViewTag, tag, node.getViewClass(), initialProps);
       return;
     }
 
@@ -87,18 +83,11 @@ public class NativeViewHierarchyOptimizer {
 
     if (!isLayoutOnly) {
       mUIViewOperationQueue.enqueueCreateView(
-          themedContext,
+          rootViewTag,
           node.getReactTag(),
           node.getViewClass(),
           initialProps);
     }
-  }
-
-  /**
-   * Handles native children cleanup when css node is removed from hierarchy
-   */
-  public static void handleRemoveNode(ReactShadowNode node) {
-    node.removeAllNativeChildren();
   }
 
   /**
@@ -395,7 +384,7 @@ public class NativeViewHierarchyOptimizer {
 
     // Create the view since it doesn't exist in the native hierarchy yet
     mUIViewOperationQueue.enqueueCreateView(
-        node.getRootNode().getThemedContext(),
+        node.getRootNode().getReactTag(),
         node.getReactTag(),
         node.getViewClass(),
         props);

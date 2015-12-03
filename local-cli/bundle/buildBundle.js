@@ -9,12 +9,12 @@
 'use strict';
 
 const log = require('../util/log').out('bundle');
-const outputBundle = require('./output/bundle');
+const processBundle = require('./processBundle');
 const Promise = require('promise');
 const ReactPackager = require('../../packager/react-packager');
-const saveAssets = require('./saveAssets');
+const saveBundleAndMap = require('./saveBundleAndMap');
 
-function buildBundle(args, config, output = outputBundle) {
+function buildBundle(args, config) {
   return new Promise((resolve, reject) => {
 
     // This is used by a bazillion of npm modules we don't control so we don't
@@ -36,37 +36,24 @@ function buildBundle(args, config, output = outputBundle) {
       platform: args.platform,
     };
 
-    const clientPromise = ReactPackager.createClientFor(options);
-
-    // Build and save the bundle
-    const bundlePromise = clientPromise
-      .then(client => {
-        log('Created ReactPackager');
-        return output.build(client, requestOpts);
-      })
-      .then(bundle => {
-        output.save(bundle, args, log);
-        return bundle;
-      });
-
-    // When we're done bundling, close the client
-    Promise.all([clientPromise, bundlePromise])
-      .then(([client]) => {
-        log('Closing client');
-        client.close();
-      });
-
-    // Save the assets of the bundle
-    const assets = bundlePromise
-      .then(bundle => bundle.getAssets())
-      .then(outputAssets => saveAssets(
-        outputAssets,
-        args.platform,
-        args['assets-dest']
-      ));
-
-    // When we're done saving bundle output and the assets, we're done.
-    resolve(assets);
+    resolve(ReactPackager.createClientFor(options).then(client => {
+      log('Created ReactPackager');
+      return client.buildBundle(requestOpts)
+        .then(outputBundle => {
+          log('Closing client');
+          client.close();
+          return outputBundle;
+        })
+        .then(outputBundle => processBundle(outputBundle, !args.dev))
+        .then(outputBundle => saveBundleAndMap(
+          outputBundle,
+          args.platform,
+          args['bundle-output'],
+          args['bundle-encoding'],
+          args['sourcemap-output'],
+          args['assets-dest']
+        ));
+    }));
   });
 }
 

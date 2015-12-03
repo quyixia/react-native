@@ -30,13 +30,6 @@ NSString *const RCTProfileDidEndProfiling = @"RCTProfileDidEndProfiling";
 
 #if RCT_DEV
 
-@interface RCTBridge ()
-
-- (void)dispatchBlock:(dispatch_block_t)block
-                queue:(dispatch_queue_t)queue;
-
-@end
-
 #pragma mark - Constants
 
 NSString const *RCTProfileTraceEvents = @"traceEvents";
@@ -45,14 +38,11 @@ NSString *const RCTProfilePrefix = @"rct_profile_";
 
 #pragma mark - Variables
 
-// This is actually a BOOL - but has to be compatible with OSAtomic
 static volatile uint32_t RCTProfileProfiling;
-
 static NSDictionary *RCTProfileInfo;
 static NSMutableDictionary *RCTProfileOngoingEvents;
 static NSTimeInterval RCTProfileStartTime;
 static NSUInteger RCTProfileEventID = 0;
-static CADisplayLink *RCTProfileDisplayLink;
 
 #pragma mark - Macros
 
@@ -181,9 +171,9 @@ IMP RCTProfileGetImplementation(id obj, SEL cmd)
  * state, call the actual function we want to profile and stop the profiler.
  *
  * The implementation can be found in RCTProfileTrampoline-<arch>.s where arch
- * is one of: i386, x86_64, arm, arm64.
+ * is one of: x86, x86_64, arm, arm64.
  */
-#if defined(__i386__) || \
+#if defined(__x86__) || \
     defined(__x86_64__) || \
     defined(__arm__) || \
     defined(__arm64__)
@@ -196,13 +186,14 @@ IMP RCTProfileGetImplementation(id obj, SEL cmd)
 RCT_EXTERN void RCTProfileTrampolineStart(id, SEL);
 void RCTProfileTrampolineStart(id self, SEL cmd)
 {
-  RCT_PROFILE_BEGIN_EVENT(0, [NSString stringWithFormat:@"-[%s %s]", class_getName([self class]), sel_getName(cmd)], nil);
+  NSString *name = [NSString stringWithFormat:@"-[%s %s]", class_getName([self class]), sel_getName(cmd)];
+  RCTProfileBeginEvent(0, name, nil);
 }
 
 RCT_EXTERN void RCTProfileTrampolineEnd(void);
 void RCTProfileTrampolineEnd(void)
 {
-  RCT_PROFILE_END_EVENT(0, @"objc_call,modules,auto", nil);
+  RCTProfileEndEvent(0, @"objc_call,modules,auto", nil);
 }
 
 void RCTProfileHookModules(RCTBridge *bridge)
@@ -215,15 +206,11 @@ void RCTProfileHookModules(RCTBridge *bridge)
 #pragma clang diagnostic pop
 
   for (RCTModuleData *moduleData in [bridge valueForKey:@"moduleDataByID"]) {
-    [bridge dispatchBlock:^{
+    [moduleData dispatchBlock:^{
       Class moduleClass = moduleData.moduleClass;
       Class proxyClass = objc_allocateClassPair(moduleClass, RCTProfileProxyClassName(moduleClass), 0);
 
       if (!proxyClass) {
-        proxyClass = objc_getClass(RCTProfileProxyClassName(moduleClass));
-        if (proxyClass) {
-          object_setClass(moduleData.instance, proxyClass);
-        }
         return;
       }
 
@@ -250,7 +237,7 @@ void RCTProfileHookModules(RCTBridge *bridge)
 
       objc_registerClassPair(proxyClass);
       object_setClass(moduleData.instance, proxyClass);
-    } queue:moduleData.methodQueue];
+    }];
   }
 }
 
@@ -262,25 +249,13 @@ void RCTProfileUnhookModules(RCTBridge *bridge)
     Class proxyClass = object_getClass(moduleData.instance);
     if (moduleData.moduleClass != proxyClass) {
       object_setClass(moduleData.instance, moduleData.moduleClass);
+      objc_disposeClassPair(proxyClass);
     }
   }
 
   dispatch_group_leave(RCTProfileGetUnhookGroup());
 }
 
-#pragma mark - Private ObjC class only used for the vSYNC CADisplayLink target
-
-@interface RCTProfile : NSObject
-@end
-
-@implementation RCTProfile
-
-+ (void)vsync:(__unused CADisplayLink *)displayLink
-{
-  RCTProfileImmediateEvent(0, @"VSYNC", 'g');
-}
-
-@end
 
 #pragma mark - Public Functions
 
@@ -296,18 +271,14 @@ dispatch_queue_t RCTProfileGetQueue(void)
 
 BOOL RCTProfileIsProfiling(void)
 {
-  return (BOOL)RCTProfileProfiling;
+  return (BOOL)OSAtomicAnd32(1, &RCTProfileProfiling);
 }
 
 void RCTProfileInit(RCTBridge *bridge)
 {
   // TODO: enable assert JS thread from any file (and assert here)
 
-  if (RCTProfileIsProfiling()) {
-    return;
-  }
-
-  OSAtomicOr32Barrier(1, &RCTProfileProfiling);
+  OSAtomicOr32(1, &RCTProfileProfiling);
 
   if (callbacks != NULL) {
     size_t buffer_size = 1 << 22;
@@ -327,11 +298,6 @@ void RCTProfileInit(RCTBridge *bridge)
 
   RCTProfileHookModules(bridge);
 
-  RCTProfileDisplayLink = [CADisplayLink displayLinkWithTarget:[RCTProfile class]
-                                                      selector:@selector(vsync:)];
-  [RCTProfileDisplayLink addToRunLoop:[NSRunLoop mainRunLoop]
-                              forMode:NSRunLoopCommonModes];
-
   [[NSNotificationCenter defaultCenter] postNotificationName:RCTProfileDidStartProfiling
                                                       object:nil];
 }
@@ -344,13 +310,10 @@ void RCTProfileEnd(RCTBridge *bridge, void (^callback)(NSString *))
     return;
   }
 
-  OSAtomicAnd32Barrier(0, &RCTProfileProfiling);
+  OSAtomicAnd32(0, &RCTProfileProfiling);
 
   [[NSNotificationCenter defaultCenter] postNotificationName:RCTProfileDidEndProfiling
                                                       object:nil];
-
-  [RCTProfileDisplayLink invalidate];
-  RCTProfileDisplayLink = nil;
 
   RCTProfileUnhookModules(bridge);
 
@@ -446,20 +409,20 @@ void _RCTProfileEndEvent(
   );
 }
 
-NSUInteger RCTProfileBeginAsyncEvent(
+int RCTProfileBeginAsyncEvent(
   uint64_t tag,
   NSString *name,
   NSDictionary *args
 ) {
   CHECK(0);
 
-  static NSUInteger eventID = 0;
+  static int eventID = 0;
 
   NSTimeInterval time = CACurrentMediaTime();
-  NSUInteger currentEventID = ++eventID;
+  int currentEventID = ++eventID;
 
   if (callbacks != NULL) {
-    callbacks->begin_async_section(tag, name.UTF8String, (int)(currentEventID % INT_MAX), args.count, RCTProfileSystraceArgsFromNSDictionary(args));
+    callbacks->begin_async_section(tag, name.UTF8String, eventID, args.count, RCTProfileSystraceArgsFromNSDictionary(args));
   } else {
     dispatch_async(RCTProfileGetQueue(), ^{
       RCTProfileOngoingEvents[@(currentEventID)] = @[
@@ -476,14 +439,14 @@ NSUInteger RCTProfileBeginAsyncEvent(
 void RCTProfileEndAsyncEvent(
   uint64_t tag,
   NSString *category,
-  NSUInteger cookie,
+  int cookie,
   NSString *name,
   NSDictionary *args
 ) {
   CHECK();
 
   if (callbacks != NULL) {
-    callbacks->end_async_section(tag, name.UTF8String, (int)(cookie % INT_MAX), args.count, RCTProfileSystraceArgsFromNSDictionary(args));
+    callbacks->end_async_section(tag, name.UTF8String, cookie, args.count, RCTProfileSystraceArgsFromNSDictionary(args));
     return;
   }
 

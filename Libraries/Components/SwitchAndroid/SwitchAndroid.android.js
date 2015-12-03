@@ -13,7 +13,6 @@
 var NativeMethodsMixin = require('NativeMethodsMixin');
 var PropTypes = require('ReactPropTypes');
 var React = require('React');
-var View = require('View');
 
 var requireNativeComponent = require('requireNativeComponent');
 
@@ -26,7 +25,6 @@ var SwitchAndroid = React.createClass({
   mixins: [NativeMethodsMixin],
 
   propTypes: {
-    ...View.propTypes,
     /**
      * Boolean value of the switch.
      */
@@ -81,11 +79,6 @@ var SwitchAndroid = React.createClass({
   }
 });
 
-var RKSwitch = requireNativeComponent('AndroidSwitch', SwitchAndroid, {
-  nativeOnly: {
-    on: true,
-    enabled: true,
-  }
-});
+var RKSwitch = requireNativeComponent('AndroidSwitch', null);
 
 module.exports = SwitchAndroid;

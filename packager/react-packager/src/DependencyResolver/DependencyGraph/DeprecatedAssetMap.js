@@ -8,6 +8,7 @@
  */
 'use strict';
 
+const Activity = require('../../Activity');
 const AssetModule_DEPRECATED = require('../AssetModule_DEPRECATED');
 const Fastfs = require('../fastfs');
 const debug = require('debug')('ReactNativePackager:DependencyGraph');
@@ -15,15 +16,7 @@ const path = require('path');
 const Promise = require('promise');
 
 class DeprecatedAssetMap {
-  constructor({
-    fsCrawl,
-    roots,
-    assetExts,
-    fileWatcher,
-    ignoreFilePath,
-    helpers,
-    activity,
-  }) {
+  constructor({ fsCrawl, roots, assetExts, fileWatcher, ignoreFilePath, helpers }) {
     if (roots == null || roots.length === 0) {
       this._disabled = true;
       return;
@@ -36,9 +29,8 @@ class DeprecatedAssetMap {
       'Assets',
       roots,
       fileWatcher,
-      { ignore: ignoreFilePath, crawling: fsCrawl, activity }
+      { ignore: ignoreFilePath, crawling: fsCrawl }
     );
-    this._activity = activity;
 
     this._fastfs.on('change', this._processFileChange.bind(this));
   }
@@ -50,21 +42,15 @@ class DeprecatedAssetMap {
 
     return this._fastfs.build().then(
       () => {
-        const activity = this._activity;
-        let processAsset_DEPRECATEDActivity;
-        if (activity) {
-          processAsset_DEPRECATEDActivity = activity.startEvent(
-            'Building (deprecated) Asset Map',
-          );
-        }
+        const processAsset_DEPRECATEDActivity = Activity.startEvent(
+          'Building (deprecated) Asset Map',
+        );
 
         this._fastfs.findFilesByExts(this._assetExts).forEach(
           file => this._processAsset(file)
         );
 
-        if (activity) {
-          activity.endEvent(processAsset_DEPRECATEDActivity);
-        }
+        Activity.endEvent(processAsset_DEPRECATEDActivity);
       }
     );
   }
@@ -85,9 +71,9 @@ class DeprecatedAssetMap {
   }
 
   _processAsset(file) {
-    const ext = this._helpers.extname(file);
+    let ext = this._helpers.extname(file);
     if (this._assetExts.indexOf(ext) !== -1) {
-      const name = assetName(file, ext);
+      let name = assetName(file, ext);
       if (this._map[name] != null) {
         debug('Conflcting assets', name);
       }

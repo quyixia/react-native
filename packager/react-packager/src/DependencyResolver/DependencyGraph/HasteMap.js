@@ -7,15 +7,15 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 'use strict';
+
 const path = require('path');
-const getPlatformExtension = require('../lib/getPlatformExtension');
+const getPlatformExtension = require('../../lib/getPlatformExtension');
 const Promise = require('promise');
 
 const GENERIC_PLATFORM = 'generic';
 
 class HasteMap {
-  constructor({ extensions, fastfs, moduleCache, helpers }) {
-    this._extensions = extensions;
+  constructor({ fastfs, moduleCache, helpers }) {
     this._fastfs = fastfs;
     this._moduleCache = moduleCache;
     this._helpers = helpers;
@@ -24,13 +24,13 @@ class HasteMap {
   build() {
     this._map = Object.create(null);
 
-    let promises = this._fastfs.findFilesByExts(this._extensions, {
-      ignore: (file) => this._helpers.isNodeModulesDir(file),
+    let promises = this._fastfs.findFilesByExt('js', {
+      ignore: (file) => this._helpers.isNodeModulesDir(file)
     }).map(file => this._processHasteModule(file));
 
     promises = promises.concat(
       this._fastfs.findFilesByName('package.json', {
-        ignore: (file) => this._helpers.isNodeModulesDir(file),
+        ignore: (file) => this._helpers.isNodeModulesDir(file)
       }).map(file => this._processHastePackage(file))
     );
 
@@ -41,9 +41,9 @@ class HasteMap {
     return Promise.resolve().then(() => {
       /*eslint no-labels: 0 */
       if (type === 'delete' || type === 'change') {
-        loop: for (const name in this._map) {
+        loop: for (let name in this._map) {
           const modulesMap = this._map[name];
-          for (const platform in modulesMap) {
+          for (let platform in modulesMap) {
             const module = modulesMap[platform];
             if (module.path === absPath) {
               delete modulesMap[platform];
@@ -53,11 +53,12 @@ class HasteMap {
         }
 
         if (type === 'delete') {
-          return null;
+          return;
         }
       }
 
-      if (this._extensions.indexOf(this._helpers.extname(absPath)) !== -1) {
+      if (this._helpers.extname(absPath) === 'js' ||
+          this._helpers.extname(absPath) === 'json') {
         if (path.basename(absPath) === 'package.json') {
           return this._processHastePackage(absPath);
         } else {
@@ -117,12 +118,11 @@ class HasteMap {
 
     const moduleMap = this._map[name];
     const modulePlatform = getPlatformExtension(mod.path) || GENERIC_PLATFORM;
-    const existingModule = moduleMap[modulePlatform];
 
-    if (existingModule && existingModule.path !== mod.path) {
+    if (moduleMap[modulePlatform]) {
       throw new Error(
         `Naming collision detected: ${mod.path} ` +
-        `collides with ${existingModule.path}`
+        `collides with ${moduleMap[modulePlatform].path}`
       );
     }
 

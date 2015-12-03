@@ -46,9 +46,9 @@ describe('System.import', () => {
 
   function transform(source) {
     return babel.transform(source, {
-      plugins: [
-        [require('../'), { bundlesLayout: layout }]
-      ],
+      plugins: [require('../')],
+      blacklist: ['strict'],
+      extra: { bundlesLayout: layout },
     }).code;
   }
 

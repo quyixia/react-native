@@ -53,13 +53,14 @@ void RCTSetLogThreshold(RCTLogLevel threshold) {
 
 RCTLogFunction RCTDefaultLogFunction = ^(
   RCTLogLevel level,
-  __unused RCTLogSource source,
   NSString *fileName,
   NSNumber *lineNumber,
   NSString *message
 )
 {
-  NSString *log = RCTFormatLog([NSDate date], level, fileName, lineNumber, message);
+  NSString *log = RCTFormatLog(
+    [NSDate date], level, fileName, lineNumber, message
+  );
   fprintf(stderr, "%s\n", log.UTF8String);
   fflush(stderr);
 
@@ -101,9 +102,13 @@ void RCTAddLogFunction(RCTLogFunction logFunction)
 {
   RCTLogFunction existing = RCTGetLogFunction();
   if (existing) {
-    RCTSetLogFunction(^(RCTLogLevel level, RCTLogSource source, NSString *fileName, NSNumber *lineNumber, NSString *message) {
-      existing(level, source, fileName, lineNumber, message);
-      logFunction(level, source, fileName, lineNumber, message);
+    RCTSetLogFunction(^(RCTLogLevel level,
+                        NSString *fileName,
+                        NSNumber *lineNumber,
+                        NSString *message) {
+
+      existing(level, fileName, lineNumber, message);
+      logFunction(level, fileName, lineNumber, message);
     });
   } else {
     RCTSetLogFunction(logFunction);
@@ -142,10 +147,8 @@ void RCTPerformBlockWithLogPrefix(void (^block)(void), NSString *prefix)
 {
   RCTLogFunction logFunction = RCTGetLocalLogFunction();
   if (logFunction) {
-    RCTPerformBlockWithLogFunction(block, ^(RCTLogLevel level, RCTLogSource source,
-                                            NSString *fileName, NSNumber *lineNumber,
-                                            NSString *message) {
-      logFunction(level, source, fileName, lineNumber, [prefix stringByAppendingString:message]);
+    RCTPerformBlockWithLogFunction(block, ^(RCTLogLevel level, NSString *fileName, NSNumber *lineNumber, NSString *message) {
+      logFunction(level, fileName, lineNumber, [prefix stringByAppendingString:message]);
     });
   }
 }
@@ -189,11 +192,17 @@ NSString *RCTFormatLog(
   return log;
 }
 
-void _RCTLogNativeInternal(RCTLogLevel level, const char *fileName, int lineNumber, NSString *format, ...)
+void _RCTLogInternal(
+  RCTLogLevel level,
+  const char *fileName,
+  int lineNumber,
+  NSString *format, ...
+)
 {
   RCTLogFunction logFunction = RCTGetLocalLogFunction();
   BOOL log = RCT_DEBUG || (logFunction != nil);
   if (log && level >= RCTGetLogThreshold()) {
+
     // Get message
     va_list args;
     va_start(args, format);
@@ -202,7 +211,7 @@ void _RCTLogNativeInternal(RCTLogLevel level, const char *fileName, int lineNumb
 
     // Call log function
     if (logFunction) {
-      logFunction(level, RCTLogSourceNative, fileName ? @(fileName) : nil, lineNumber > 0 ? @(lineNumber) : nil, message);
+      logFunction(level, fileName ? @(fileName) : nil, (lineNumber >= 0) ? @(lineNumber) : nil, message);
     }
 
 #if RCT_DEBUG
@@ -216,7 +225,7 @@ void _RCTLogNativeInternal(RCTLogLevel level, const char *fileName, int lineNumb
           NSString *address = [[frameSymbols componentsSeparatedByString:@"0x"][1] componentsSeparatedByString:@" "][0];
           NSRange addressRange = [frameSymbols rangeOfString:address];
           NSString *methodName = [frameSymbols substringFromIndex:(addressRange.location + addressRange.length + 1)];
-          if (idx == 1 && fileName) {
+          if (idx == 1) {
             NSString *file = [@(fileName) componentsSeparatedByString:@"/"].lastObject;
             [stack addObject:@{@"methodName": methodName, @"file": file, @"lineNumber": @(lineNumber)}];
           } else {
@@ -234,16 +243,5 @@ void _RCTLogNativeInternal(RCTLogLevel level, const char *fileName, int lineNumb
     // Log to JS executor
     [[RCTBridge currentBridge] logMessage:message level:level ? @(RCTLogLevels[level]) : @"info"];
 #endif
-  }
-}
-
-void _RCTLogJavaScriptInternal(RCTLogLevel level, NSString *message)
-{
-  RCTLogFunction logFunction = RCTGetLocalLogFunction();
-  BOOL log = RCT_DEBUG || (logFunction != nil);
-  if (log && level >= RCTGetLogThreshold()) {
-    if (logFunction) {
-      logFunction(level, RCTLogSourceJavaScript, nil, nil, message);
-    }
   }
 }

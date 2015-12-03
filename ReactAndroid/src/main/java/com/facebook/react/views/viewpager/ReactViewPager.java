@@ -133,12 +133,6 @@ import com.facebook.react.uimanager.events.NativeGestureUtil;
     return false;
   }
 
-  public void setCurrentItemFromJs(int item, boolean animated) {
-    mIsCurrentItemFromJs = true;
-    setCurrentItem(item, animated);
-    mIsCurrentItemFromJs = false;
-  }
-
   /*package*/ void addViewToAdapter(View child, int index) {
     getAdapter().addView(child, index);
   }
@@ -153,5 +147,11 @@ import com.facebook.react.uimanager.events.NativeGestureUtil;
 
   /*package*/ View getViewFromAdapter(int index) {
     return getAdapter().getViewAt(index);
+  }
+
+  /*package*/ void setCurrentItemFromJs(int item) {
+    mIsCurrentItemFromJs = true;
+    setCurrentItem(item);
+    mIsCurrentItemFromJs = false;
   }
 }

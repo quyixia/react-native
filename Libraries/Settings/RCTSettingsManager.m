@@ -24,31 +24,23 @@
 
 RCT_EXPORT_MODULE()
 
+- (instancetype)init
+{
+  return [self initWithUserDefaults:[NSUserDefaults standardUserDefaults]];
+}
+
 - (instancetype)initWithUserDefaults:(NSUserDefaults *)defaults
 {
-  if ((self = [self init])) {
+  if ((self = [super init])) {
     _defaults = defaults;
+
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(userDefaultsDidChange:)
+                                                 name:NSUserDefaultsDidChangeNotification
+                                               object:_defaults];
   }
+
   return self;
-}
-
-- (void)setBridge:(RCTBridge *)bridge
-{
-  _bridge = bridge;
-
-  if (!_defaults) {
-    _defaults = [NSUserDefaults standardUserDefaults];
-  }
-
-  [[NSNotificationCenter defaultCenter] addObserver:self
-                                           selector:@selector(userDefaultsDidChange:)
-                                               name:NSUserDefaultsDidChangeNotification
-                                             object:_defaults];
-}
-
-- (NSDictionary<NSString *, id> *)constantsToExport
-{
-  return @{@"settings": RCTJSONClean([_defaults dictionaryRepresentation])};
 }
 
 - (void)dealloc
@@ -65,6 +57,13 @@ RCT_EXPORT_MODULE()
   [_bridge.eventDispatcher
    sendDeviceEventWithName:@"settingsUpdated"
    body:RCTJSONClean([_defaults dictionaryRepresentation])];
+}
+
+- (NSDictionary *)constantsToExport
+{
+  return @{
+    @"settings": RCTJSONClean([_defaults dictionaryRepresentation])
+  };
 }
 
 /**

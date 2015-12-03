@@ -329,6 +329,7 @@ var Navigator = React.createClass({
     });
     this.panGesture = PanResponder.create({
       onMoveShouldSetPanResponder: this._handleMoveShouldSetPanResponder,
+      onPanResponderGrant: this._handlePanResponderGrant,
       onPanResponderRelease: this._handlePanResponderRelease,
       onPanResponderMove: this._handlePanResponderMove,
       onPanResponderTerminate: this._handlePanResponderTerminate,
@@ -347,12 +348,7 @@ var Navigator = React.createClass({
       this._navigationContext.dispose();
       this._navigationContext = null;
     }
-
-    this.spring.destroy();
-
-    if (this._interactionHandle) {
-      this.clearInteractionHandle(this._interactionHandle);
-    }
+    this.spring.removeAllListeners();
   },
 
   /**
@@ -418,9 +414,6 @@ var Navigator = React.createClass({
    * happening, we only set values for the transition and the gesture will catch up later
    */
   _handleSpringUpdate: function() {
-    if (!this.isMounted()) {
-      return;
-    }
     // Prioritize handling transition in progress over a gesture:
     if (this.state.transitionFromIndex != null) {
       this._transitionBetween(
@@ -442,10 +435,6 @@ var Navigator = React.createClass({
    * This happens at the end of a transition started by transitionTo, and when the spring catches up to a pending gesture
    */
   _completeTransition: function() {
-    if (!this.isMounted()) {
-      return;
-    }
-
     if (this.spring.getCurrentValue() !== 1 && this.spring.getCurrentValue() !== 0) {
       // The spring has finished catching up to a gesture in progress. Remove the pending progress
       // and we will be in a normal activeGesture state
@@ -608,8 +597,7 @@ var Navigator = React.createClass({
     if (!sceneConfig) {
       return false;
     }
-    this._expectingGestureGrant =
-      this._matchGestureAction(this._eligibleGestures, sceneConfig.gestures, gestureState);
+    this._expectingGestureGrant = this._matchGestureAction(this._eligibleGestures, sceneConfig.gestures, gestureState);
     return !!this._expectingGestureGrant;
   },
 
@@ -619,6 +607,16 @@ var Navigator = React.createClass({
     var wouldOverswipeForward = this.state.presentedIndex >= this.state.routeStack.length - 1 &&
       gestureName === 'jumpForward';
     return wouldOverswipeForward || wouldOverswipeBack;
+  },
+
+  _handlePanResponderGrant: function(e, gestureState) {
+    invariant(
+      this._expectingGestureGrant,
+      'Responder granted unexpectedly.'
+    );
+    this._attachGesture(this._expectingGestureGrant);
+    this._onAnimationStart();
+    this._expectingGestureGrant = null;
   },
 
   _deltaForGestureAction: function(gestureAction) {
@@ -675,7 +673,7 @@ var Navigator = React.createClass({
         this.state.presentedIndex = destIndex;
         this._transitionTo(
           transitionBackToPresentedIndex,
-          -transitionVelocity,
+          - transitionVelocity,
           1 - this.spring.getCurrentValue()
         );
       }
@@ -725,16 +723,6 @@ var Navigator = React.createClass({
   },
 
   _handlePanResponderMove: function(e, gestureState) {
-    if (this._isMoveGestureAttached !== undefined) {
-      invariant(
-        this._expectingGestureGrant,
-        'Responder granted unexpectedly.'
-      );
-      this._attachGesture(this._expectingGestureGrant);
-      this._onAnimationStart();
-      this._expectingGestureGrant = undefined;
-    }
-
     var sceneConfig = this.state.sceneConfigStack[this.state.presentedIndex];
     if (this.state.activeGesture) {
       var gesture = sceneConfig.gestures[this.state.activeGesture];
@@ -750,7 +738,7 @@ var Navigator = React.createClass({
     var isTravelVertical = gesture.direction === 'top-to-bottom' || gesture.direction === 'bottom-to-top';
     var isTravelInverted = gesture.direction === 'right-to-left' || gesture.direction === 'bottom-to-top';
     var distance = isTravelVertical ? gestureState.dy : gestureState.dx;
-    distance = isTravelInverted ? -distance : distance;
+    distance = isTravelInverted ? - distance : distance;
     var gestureDetectMovement = gesture.gestureDetectMovement;
     var nextProgress = (distance - gestureDetectMovement) /
       (gesture.fullDistance - gestureDetectMovement);
@@ -825,7 +813,7 @@ var Navigator = React.createClass({
         this._eligibleGestures = this._eligibleGestures.slice().splice(gestureIndex, 1);
       }
     });
-    return matchedGesture || null;
+    return matchedGesture;
   },
 
   _transitionSceneStyle: function(fromIndex, toIndex, progress, index) {
@@ -1087,10 +1075,7 @@ var Navigator = React.createClass({
       return null;
     }
     return React.cloneElement(this.props.navigationBar, {
-      ref: (navBar) => {
-        this.props.navigationBar.ref instanceof Function && this.props.navigationBar.ref(navBar);
-        this._navBar = navBar;
-      },
+      ref: (navBar) => { this._navBar = navBar; },
       navigator: this._navigationBarNavigator,
       navState: this.state,
     });

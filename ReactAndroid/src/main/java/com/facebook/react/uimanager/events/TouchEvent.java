@@ -35,24 +35,18 @@ public class TouchEvent extends Event<TouchEvent> {
       int viewTag,
       long timestampMs,
       TouchEventType touchEventType,
-      MotionEvent motionEventToCopy,
-      float viewX,
-      float viewY) {
+      MotionEvent motionEventToCopy) {
     TouchEvent event = EVENTS_POOL.acquire();
     if (event == null) {
       event = new TouchEvent();
     }
-    event.init(viewTag, timestampMs, touchEventType, motionEventToCopy, viewX, viewY);
+    event.init(viewTag, timestampMs, touchEventType, motionEventToCopy);
     return event;
   }
 
   private @Nullable MotionEvent mMotionEvent;
   private @Nullable TouchEventType mTouchEventType;
   private short mCoalescingKey;
-
-  // Coordinates in the ViewTag coordinate space
-  private float mViewX;
-  private float mViewY;
 
   private TouchEvent() {
   }
@@ -61,9 +55,7 @@ public class TouchEvent extends Event<TouchEvent> {
       int viewTag,
       long timestampMs,
       TouchEventType touchEventType,
-      MotionEvent motionEventToCopy,
-      float viewX,
-      float viewY) {
+      MotionEvent motionEventToCopy) {
     super.init(viewTag, timestampMs);
 
     short coalescingKey = 0;
@@ -92,8 +84,6 @@ public class TouchEvent extends Event<TouchEvent> {
     mTouchEventType = touchEventType;
     mMotionEvent = MotionEvent.obtain(motionEventToCopy);
     mCoalescingKey = coalescingKey;
-    mViewX = viewX;
-    mViewY = viewY;
   }
 
   @Override
@@ -136,19 +126,6 @@ public class TouchEvent extends Event<TouchEvent> {
         rctEventEmitter,
         Assertions.assertNotNull(mTouchEventType),
         getViewTag(),
-        this);
-  }
-
-  public MotionEvent getMotionEvent() {
-    Assertions.assertNotNull(mMotionEvent);
-    return mMotionEvent;
-  }
-
-  public float getViewX() {
-    return mViewX;
-  }
-
-  public float getViewY() {
-    return mViewY;
+        Assertions.assertNotNull(mMotionEvent));
   }
 }

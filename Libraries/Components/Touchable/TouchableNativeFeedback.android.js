@@ -11,17 +11,17 @@
 'use strict';
 
 var PropTypes = require('ReactPropTypes');
+var RCTUIManager = require('NativeModules').UIManager;
 var React = require('React');
 var ReactNativeViewAttributes = require('ReactNativeViewAttributes');
 var Touchable = require('Touchable');
 var TouchableWithoutFeedback = require('TouchableWithoutFeedback');
-var UIManager = require('UIManager');
 
+var createReactNativeComponentClass = require('createReactNativeComponentClass');
 var createStrictShapeTypeChecker = require('createStrictShapeTypeChecker');
 var ensurePositiveDelayProps = require('ensurePositiveDelayProps');
 var onlyChild = require('onlyChild');
 var processColor = require('processColor');
-var requireNativeComponent = require('requireNativeComponent');
 
 var rippleBackgroundPropType = createStrictShapeTypeChecker({
   type: React.PropTypes.oneOf(['RippleAndroid']),
@@ -39,13 +39,15 @@ var backgroundPropType = PropTypes.oneOfType([
   themeAttributeBackgroundPropType,
 ]);
 
-var TouchableView = requireNativeComponent('RCTView', null, {
-  nativeOnly: {
+var TouchableView = createReactNativeComponentClass({
+  validAttributes: {
+    ...ReactNativeViewAttributes.UIView,
     nativeBackgroundAndroid: backgroundPropType,
-  }
+  },
+  uiViewClassName: 'RCTView',
 });
 
-var PRESS_RETENTION_OFFSET = {top: 20, left: 20, right: 20, bottom: 30};
+var PRESS_RECT_OFFSET = {top: 20, left: 20, right: 20, bottom: 30};
 
 /**
  * A wrapper for making views respond properly to touches (Android only).
@@ -159,8 +161,7 @@ var TouchableNativeFeedback = React.createClass({
   },
 
   touchableGetPressRectOffset: function() {
-    // Always make sure to predeclare a constant!
-    return this.props.pressRetentionOffset || PRESS_RETENTION_OFFSET;
+    return PRESS_RECT_OFFSET;   // Always make sure to predeclare a constant!
   },
 
   touchableGetHighlightDelayMS: function() {
@@ -181,17 +182,17 @@ var TouchableNativeFeedback = React.createClass({
   },
 
   _dispatchHotspotUpdate: function(destX, destY) {
-    UIManager.dispatchViewManagerCommand(
+    RCTUIManager.dispatchViewManagerCommand(
       React.findNodeHandle(this),
-      UIManager.RCTView.Commands.hotspotUpdate,
+      RCTUIManager.RCTView.Commands.hotspotUpdate,
       [destX || 0, destY || 0]
     );
   },
 
   _dispatchPressedStateChange: function(pressed) {
-    UIManager.dispatchViewManagerCommand(
+    RCTUIManager.dispatchViewManagerCommand(
       React.findNodeHandle(this),
-      UIManager.RCTView.Commands.setPressed,
+      RCTUIManager.RCTView.Commands.setPressed,
       [pressed]
     );
   },

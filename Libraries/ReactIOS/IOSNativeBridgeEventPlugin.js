@@ -12,14 +12,16 @@
 'use strict';
 
 var EventPropagators = require('EventPropagators');
+var NativeModules = require('NativeModules');
 var SyntheticEvent = require('SyntheticEvent');
-var UIManager = require('UIManager');
 
 var merge = require('merge');
 var warning = require('warning');
 
-var customBubblingEventTypes = UIManager.customBubblingEventTypes;
-var customDirectEventTypes = UIManager.customDirectEventTypes;
+var RCTUIManager = NativeModules.UIManager;
+
+var customBubblingEventTypes = RCTUIManager.customBubblingEventTypes;
+var customDirectEventTypes = RCTUIManager.customDirectEventTypes;
 
 var allTypesByEventName = {};
 

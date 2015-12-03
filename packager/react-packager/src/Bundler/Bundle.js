@@ -16,24 +16,13 @@ const Activity = require('../Activity');
 
 const SOURCEMAPPING_URL = '\n\/\/@ sourceMappingURL=';
 
-const minifyCode = code =>
-  UglifyJS.minify(code, {fromString: true, ascii_only: true}).code;
-const getCode = x => x.code;
-const getMinifiedCode = x => minifyCode(x.code);
-const getNameAndCode = ({name, code}) => ({name, code});
-const getNameAndMinifiedCode =
-  ({name, code}) => ({name, code: minifyCode(code)});
-
 class Bundle {
   constructor(sourceMapUrl) {
     this._finalized = false;
     this._modules = [];
     this._assets = [];
-    this._sourceMap = false;
     this._sourceMapUrl = sourceMapUrl;
     this._shouldCombineSourceMaps = false;
-    this._numPrependedModules = 0;
-    this._numRequireCalls = 0;
   }
 
   setMainModuleId(moduleId) {
@@ -56,10 +45,6 @@ class Bundle {
 
   getModules() {
     return this._modules;
-  }
-
-  setNumPrependedModules(n) {
-    this._numPrependedModules = n;
   }
 
   addAsset(asset) {
@@ -90,7 +75,6 @@ class Bundle {
       sourceCode: code,
       sourcePath: name + '.js',
     }));
-    this._numRequireCalls += 1;
   }
 
   _assertFinalized() {
@@ -99,36 +83,16 @@ class Bundle {
     }
   }
 
-  _getSource(dev) {
-    if (this._source) {
-      return this._source;
+  _getSource() {
+    if (this._source == null) {
+      this._source = _.pluck(this._modules, 'code').join('\n');
     }
-
-    this._source = _.pluck(this._modules, 'code').join('\n');
-
-    if (dev) {
-      return this._source;
-    }
-
-    const wpoActivity = Activity.startEvent('Whole Program Optimisations');
-    const result = require('babel-core').transform(this._source, {
-      retainLines: true,
-      compact: true,
-      plugins: require('../transforms/whole-program-optimisations'),
-      inputSourceMap: this.getSourceMap(),
-    });
-
-    this._source = result.code;
-    this._sourceMap = result.map;
-
-    Activity.endEvent(wpoActivity);
-
     return this._source;
   }
 
-  _getInlineSourceMap(dev) {
+  _getInlineSourceMap() {
     if (this._inlineSourceMap == null) {
-      const sourceMap = this.getSourceMap({excludeSource: true, dev});
+      const sourceMap = this.getSourceMap({excludeSource: true});
       /*eslint-env node*/
       const encoded = new Buffer(JSON.stringify(sourceMap)).toString('base64');
       this._inlineSourceMap = 'data:application/json;base64,' + encoded;
@@ -142,13 +106,13 @@ class Bundle {
     options = options || {};
 
     if (options.minify) {
-      return this.getMinifiedSourceAndMap(options.dev).code;
+      return this.getMinifiedSourceAndMap().code;
     }
 
-    let source = this._getSource(options.dev);
+    let source = this._getSource();
 
     if (options.inlineSourceMap) {
-      source += SOURCEMAPPING_URL + this._getInlineSourceMap(options.dev);
+      source += SOURCEMAPPING_URL + this._getInlineSourceMap();
     } else if (this._sourceMapUrl) {
       source += SOURCEMAPPING_URL + this._sourceMapUrl;
     }
@@ -156,34 +120,14 @@ class Bundle {
     return source;
   }
 
-  getUnbundle({minify}) {
-    const allModules = this._modules.slice();
-    const prependedModules = this._numPrependedModules;
-    const requireCalls = this._numRequireCalls;
-
-    const modules =
-      allModules
-        .splice(prependedModules, allModules.length - requireCalls - prependedModules);
-    const startupCode =
-      allModules
-        .map(minify ? getMinifiedCode : getCode)
-        .join('\n');
-
-    return {
-      startupCode,
-      modules:
-        modules.map(minify ? getNameAndMinifiedCode : getNameAndCode)
-    };
-  }
-
-  getMinifiedSourceAndMap(dev) {
+  getMinifiedSourceAndMap() {
     this._assertFinalized();
 
     if (this._minifiedSourceAndMap) {
       return this._minifiedSourceAndMap;
     }
 
-    const source = this._getSource(dev);
+    const source = this._getSource();
     try {
       const minifyActivity = Activity.startEvent('minify');
       this._minifiedSourceAndMap = UglifyJS.minify(source, {
@@ -259,7 +203,7 @@ class Bundle {
     options = options || {};
 
     if (options.minify) {
-      return this.getMinifiedSourceAndMap(options.dev).map;
+      return this.getMinifiedSourceAndMap().map;
     }
 
     if (this._shouldCombineSourceMaps) {
@@ -370,9 +314,8 @@ class Bundle {
       modules: this._modules,
       assets: this._assets,
       sourceMapUrl: this._sourceMapUrl,
+      shouldCombineSourceMaps: this._shouldCombineSourceMaps,
       mainModuleId: this._mainModuleId,
-      numPrependedModules: this._numPrependedModules,
-      numRequireCalls: this._numRequireCalls,
     };
   }
 
@@ -382,8 +325,6 @@ class Bundle {
     bundle._assets = json.assets;
     bundle._modules = json.modules;
     bundle._sourceMapUrl = json.sourceMapUrl;
-    bundle._numPrependedModules = json.numPrependedModules;
-    bundle._numRequireCalls = json.numRequireCalls;
 
     Object.freeze(bundle._modules);
     Object.seal(bundle._modules);

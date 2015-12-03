@@ -8,16 +8,14 @@
  */
 'use strict';
 
+var path = require('path');
+var DependencyGraph = require('../DependencyResolver/DependencyGraph');
+var replacePatterns = require('../DependencyResolver/replacePatterns');
+var Polyfill = require('../DependencyResolver/Polyfill');
+var declareOpts = require('../lib/declareOpts');
+var Promise = require('promise');
 
-const path = require('path');
-const Activity = require('../Activity');
-const DependencyGraph = require('../DependencyResolver/DependencyGraph');
-const replacePatterns = require('../DependencyResolver/lib/replacePatterns');
-const Polyfill = require('../DependencyResolver/Polyfill');
-const declareOpts = require('../lib/declareOpts');
-const Promise = require('promise');
-
-const validateOpts = declareOpts({
+var validateOpts = declareOpts({
   projectRoots: {
     type: 'array',
     required: true,
@@ -51,7 +49,7 @@ const validateOpts = declareOpts({
   },
 });
 
-const getDependenciesValidateOpts = declareOpts({
+var getDependenciesValidateOpts = declareOpts({
   dev: {
     type: 'boolean',
     default: true,
@@ -60,19 +58,14 @@ const getDependenciesValidateOpts = declareOpts({
     type: 'string',
     required: false,
   },
-  isUnbundle: {
-    type: 'boolean',
-    default: false
-  },
 });
 
 class Resolver {
 
   constructor(options) {
-    const opts = validateOpts(options);
+    var opts = validateOpts(options);
 
     this._depGraph = new DependencyGraph({
-      activity: Activity,
       roots: opts.projectRoots,
       assetRoots_DEPRECATED: opts.assetRoots,
       assetExts: opts.assetExts,
@@ -80,17 +73,6 @@ class Resolver {
         return filepath.indexOf('__tests__') !== -1 ||
           (opts.blacklistRE && opts.blacklistRE.test(filepath));
       },
-      providesModuleNodeModules: [
-        'fbjs-haste',
-        'react-haste',
-        'react-native',
-        // Parse requires AsyncStorage. They will
-        // change that to require('react-native') which
-        // should work after this release and we can
-        // remove it from here.
-        'parse',
-      ],
-      platforms: ['ios', 'android'],
       fileWatcher: opts.fileWatcher,
       cache: opts.cache,
     });
@@ -99,11 +81,11 @@ class Resolver {
   }
 
   getDependencies(main, options) {
-    const opts = getDependenciesValidateOpts(options);
+    var opts = getDependenciesValidateOpts(options);
 
     return this._depGraph.getDependencies(main, opts.platform).then(
       resolutionResponse => {
-        this._getPolyfillDependencies().reverse().forEach(
+        this._getPolyfillDependencies(opts.dev).reverse().forEach(
           polyfill => resolutionResponse.prependDependency(polyfill)
         );
 
@@ -112,37 +94,17 @@ class Resolver {
     );
   }
 
-  getModuleSystemDependencies(options) {
-    const opts = getDependenciesValidateOpts(options);
-
-    const prelude = opts.dev
+  _getPolyfillDependencies(isDev) {
+    var polyfillModuleNames = [
+     isDev
         ? path.join(__dirname, 'polyfills/prelude_dev.js')
-        : path.join(__dirname, 'polyfills/prelude.js');
-
-    const moduleSystem = opts.isUnbundle
-        ? path.join(__dirname, 'polyfills/require-unbundle.js')
-        : path.join(__dirname, 'polyfills/require.js');
-
-    return [
-      prelude,
-      moduleSystem
-    ].map(moduleName => new Polyfill({
-      path: moduleName,
-      id: moduleName,
-      dependencies: [],
-      isPolyfill: true,
-    }));
-  }
-
-  _getPolyfillDependencies() {
-    const polyfillModuleNames = [
+        : path.join(__dirname, 'polyfills/prelude.js'),
+      path.join(__dirname, 'polyfills/require.js'),
       path.join(__dirname, 'polyfills/polyfills.js'),
       path.join(__dirname, 'polyfills/console.js'),
       path.join(__dirname, 'polyfills/error-guard.js'),
       path.join(__dirname, 'polyfills/String.prototype.es6.js'),
       path.join(__dirname, 'polyfills/Array.prototype.es6.js'),
-      path.join(__dirname, 'polyfills/Array.es6.js'),
-      path.join(__dirname, 'polyfills/babelHelpers.js'),
     ].concat(this._polyfillModuleNames);
 
     return polyfillModuleNames.map(
@@ -158,7 +120,7 @@ class Resolver {
   wrapModule(resolutionResponse, module, code) {
     return Promise.resolve().then(() => {
       if (module.isPolyfill()) {
-        return Promise.resolve({code});
+        return Promise.resolve(code);
       }
 
       const resolvedDeps = Object.create(null);
@@ -185,13 +147,14 @@ class Resolver {
           }
         };
 
-        code = code
-          .replace(replacePatterns.IMPORT_RE, relativizeCode)
-          .replace(replacePatterns.EXPORT_RE, relativizeCode)
-          .replace(replacePatterns.REQUIRE_RE, relativizeCode);
-
-        return module.getName().then(name =>
-          ({name, code: defineModuleCode(name, code)}));
+        return module.getName().then(
+          name => defineModuleCode({
+            code: code.replace(replacePatterns.IMPORT_RE, relativizeCode)
+                      .replace(replacePatterns.EXPORT_RE, relativizeCode)
+                      .replace(replacePatterns.REQUIRE_RE, relativizeCode),
+            moduleName: name,
+          })
+        );
       });
     });
   }
@@ -202,7 +165,7 @@ class Resolver {
 
 }
 
-function defineModuleCode(moduleName, code) {
+function defineModuleCode({moduleName, code}) {
   return [
     `__d(`,
     `'${moduleName}',`,

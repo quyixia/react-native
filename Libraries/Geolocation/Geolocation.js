@@ -29,23 +29,12 @@ type GeoOptions = {
 }
 
 /**
- * The Geolocation API follows the web spec:
- * https://developer.mozilla.org/en-US/docs/Web/API/Geolocation
- *
- * ### iOS
  * You need to include the `NSLocationWhenInUseUsageDescription` key
  * in Info.plist to enable geolocation. Geolocation is enabled by default
  * when you create a project with `react-native init`.
  *
- * ### Android
- * To request access to location, you need to add the following line to your
- * app's `AndroidManifest.xml`:
- *
- * `<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />`
- *
- * Geolocation support for Android is planned but not yet open sourced. See
- * [Known Issues](http://facebook.github.io/react-native/docs/known-issues.html#missing-modules-and-native-views).
- *
+ * Geolocation follows the MDN specification:
+ * https://developer.mozilla.org/en-US/docs/Web/API/Geolocation
  */
 var Geolocation = {
 

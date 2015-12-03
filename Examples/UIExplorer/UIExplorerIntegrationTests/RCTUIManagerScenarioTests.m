@@ -12,8 +12,10 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+
 #import <UIKit/UIKit.h>
 #import <XCTest/XCTest.h>
+#import "RCTSparseArray.h"
 #import "RCTUIManager.h"
 #import "UIView+React.h"
 
@@ -25,9 +27,9 @@
       addChildReactTags:(NSArray *)addChildReactTags
            addAtIndices:(NSArray *)addAtIndices
         removeAtIndices:(NSArray *)removeAtIndices
-               registry:(NSMutableDictionary<NSNumber *, id<RCTComponent>> *)registry;
+               registry:(RCTSparseArray *)registry;
 
-@property (nonatomic, readonly) NSMutableDictionary<NSNumber *, UIView *> *viewRegistry;
+@property (nonatomic, readonly) RCTSparseArray *viewRegistry;
 
 @end
 
@@ -49,13 +51,13 @@
   for (NSInteger i = 1; i <= 20; i++) {
     UIView *registeredView = [UIView new];
     registeredView.reactTag = @(i);
-    _uiManager.viewRegistry[@(i)] = registeredView;
+    _uiManager.viewRegistry[i] = registeredView;
   }
 }
 
 - (void)testManagingChildrenToAddViews
 {
-  UIView *containerView = _uiManager.viewRegistry[@20];
+  UIView *containerView = _uiManager.viewRegistry[20];
   NSMutableArray *addedViews = [NSMutableArray array];
 
   NSArray *tagsToAdd = @[@1, @2, @3, @4, @5];
@@ -71,7 +73,7 @@
             addChildReactTags:tagsToAdd
                  addAtIndices:addAtIndices
               removeAtIndices:nil
-                     registry:(NSMutableDictionary<NSNumber *, id<RCTComponent>> *)_uiManager.viewRegistry];
+                     registry:_uiManager.viewRegistry];
 
   XCTAssertTrue([[containerView reactSubviews] count] == 5,
                @"Expect to have 5 react subviews after calling manage children \
@@ -85,7 +87,7 @@
 
 - (void)testManagingChildrenToRemoveViews
 {
-  UIView *containerView = _uiManager.viewRegistry[@20];
+  UIView *containerView = _uiManager.viewRegistry[20];
   NSMutableArray *removedViews = [NSMutableArray array];
 
   NSArray *removeAtIndices = @[@0, @4, @8, @12, @16];
@@ -94,7 +96,7 @@
     [removedViews addObject:_uiManager.viewRegistry[reactTag]];
   }
   for (NSInteger i = 2; i < 20; i++) {
-    UIView *view = _uiManager.viewRegistry[@(i)];
+    UIView *view = _uiManager.viewRegistry[i];
     [containerView addSubview:view];
   }
 
@@ -105,7 +107,7 @@
             addChildReactTags:nil
                  addAtIndices:nil
               removeAtIndices:removeAtIndices
-                     registry:(NSMutableDictionary<NSNumber *, id<RCTComponent>> *)_uiManager.viewRegistry];
+                     registry:_uiManager.viewRegistry];
 
   XCTAssertEqual(containerView.reactSubviews.count, (NSUInteger)13,
                @"Expect to have 13 react subviews after calling manage children\
@@ -118,7 +120,7 @@
     _uiManager.viewRegistry[view.reactTag] = view;
   }
   for (NSInteger i = 2; i < 20; i++) {
-    UIView *view = _uiManager.viewRegistry[@(i)];
+    UIView *view = _uiManager.viewRegistry[i];
     if (![removedViews containsObject:view]) {
       XCTAssertTrue([view superview] == containerView,
                    @"Should not have removed view with react tag %ld during delete but did", (long)i);
@@ -137,7 +139,7 @@
 // [11,5,1,2,7,8,12,10]
 - (void)testManagingChildrenToAddRemoveAndMove
 {
-  UIView *containerView = _uiManager.viewRegistry[@20];
+  UIView *containerView = _uiManager.viewRegistry[20];
 
   NSArray *removeAtIndices = @[@2, @3, @5, @8];
   NSArray *addAtIndices = @[@0, @6];
@@ -154,7 +156,7 @@
   }
 
   for (NSInteger i = 1; i < 11; i++) {
-    UIView *view = _uiManager.viewRegistry[@(i)];
+    UIView *view = _uiManager.viewRegistry[i];
     [containerView addSubview:view];
   }
 
@@ -164,7 +166,7 @@
             addChildReactTags:tagsToAdd
                  addAtIndices:addAtIndices
               removeAtIndices:removeAtIndices
-                     registry:(NSMutableDictionary<NSNumber *, id<RCTComponent>> *)_uiManager.viewRegistry];
+                     registry:_uiManager.viewRegistry];
 
   XCTAssertTrue([[containerView reactSubviews] count] == 8,
                @"Expect to have 8 react subviews after calling manage children,\
@@ -179,7 +181,7 @@
 
   // Clean up after ourselves
   for (NSInteger i = 1; i < 13; i++) {
-    UIView *view = _uiManager.viewRegistry[@(i)];
+    UIView *view = _uiManager.viewRegistry[i];
     [view removeFromSuperview];
   }
   for (UIView *view in viewsToRemove) {

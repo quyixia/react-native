@@ -16,7 +16,7 @@
 'use strict';
 
 var Platform = require('Platform');
-var UIManager = require('UIManager');
+var RCTUIManager = require('NativeModules').UIManager;
 
 var TextInputState = {
    /**
@@ -41,11 +41,11 @@ var TextInputState = {
     if (this._currentlyFocusedID !== textFieldID && textFieldID !== null) {
       this._currentlyFocusedID = textFieldID;
       if (Platform.OS === 'ios') {
-        UIManager.focus(textFieldID);
+        RCTUIManager.focus(textFieldID);
       } else if (Platform.OS === 'android') {
-        UIManager.dispatchViewManagerCommand(
+        RCTUIManager.dispatchViewManagerCommand(
           textFieldID,
-          UIManager.AndroidTextInput.Commands.focusTextInput,
+          RCTUIManager.AndroidTextInput.Commands.focusTextInput,
           null
         );
       }
@@ -61,11 +61,11 @@ var TextInputState = {
     if (this._currentlyFocusedID === textFieldID && textFieldID !== null) {
       this._currentlyFocusedID = null;
       if (Platform.OS === 'ios') {
-        UIManager.blur(textFieldID);
+        RCTUIManager.blur(textFieldID);
       } else if (Platform.OS === 'android') {
-        UIManager.dispatchViewManagerCommand(
+        RCTUIManager.dispatchViewManagerCommand(
           textFieldID,
-          UIManager.AndroidTextInput.Commands.blurTextInput,
+          RCTUIManager.AndroidTextInput.Commands.blurTextInput,
           null
         );
       }

@@ -39,26 +39,25 @@ import com.squareup.okhttp.OkHttpClient;
 public class FrescoModule extends ReactContextBaseJavaModule implements
     ModuleDataCleaner.Cleanable {
 
-  private @Nullable ImagePipelineConfig mConfig;
+  @Nullable private RequestListener mRequestListener;
+  @Nullable private DiskCacheConfig mDiskCacheConfig;
 
   public FrescoModule(ReactApplicationContext reactContext) {
-    this(reactContext, getDefaultConfig(reactContext, null, null));
+    super(reactContext);
   }
 
   public FrescoModule(ReactApplicationContext reactContext, RequestListener listener) {
-    this(reactContext, getDefaultConfig(reactContext, listener, null));
+    super(reactContext);
+    mRequestListener = listener;
   }
 
   public FrescoModule(
       ReactApplicationContext reactContext,
       RequestListener listener,
       DiskCacheConfig diskCacheConfig) {
-    this(reactContext, getDefaultConfig(reactContext, listener, diskCacheConfig));
-  }
-
-  public FrescoModule(ReactApplicationContext reactContext, ImagePipelineConfig config) {
     super(reactContext);
-    mConfig = config;
+    mRequestListener = listener;
+    mDiskCacheConfig = diskCacheConfig;
   }
 
   @Override
@@ -66,11 +65,35 @@ public class FrescoModule extends ReactContextBaseJavaModule implements
     super.initialize();
     // Make sure the SoLoaderShim is configured to use our loader for native libraries.
     // This code can be removed if using Fresco from Maven rather than from source
-    SoLoaderShim.setHandler(new FrescoHandler());
+    SoLoaderShim.setHandler(
+        new SoLoaderShim.Handler() {
+          @Override
+          public void loadLibrary(String libraryName) {
+            SoLoader.loadLibrary(libraryName);
+          }
+        });
 
-    Context context = getReactApplicationContext().getApplicationContext();
-    Fresco.initialize(context, mConfig);
-    mConfig = null;
+    HashSet<RequestListener> requestListeners = new HashSet<>();
+    requestListeners.add(new SystraceRequestListener());
+    if (mRequestListener != null) {
+      requestListeners.add(mRequestListener);
+    }
+
+    Context context = this.getReactApplicationContext().getApplicationContext();
+    OkHttpClient okHttpClient = OkHttpClientProvider.getOkHttpClient();
+    ImagePipelineConfig.Builder builder =
+        OkHttpImagePipelineConfigFactory.newBuilder(context, okHttpClient);
+
+    builder
+        .setDownsampleEnabled(false)
+        .setRequestListeners(requestListeners);
+
+    if (mDiskCacheConfig != null) {
+      builder.setMainDiskCacheConfig(mDiskCacheConfig);
+    }
+
+    ImagePipelineConfig config = builder.build();
+    Fresco.initialize(context, config);
   }
 
   @Override
@@ -86,37 +109,5 @@ public class FrescoModule extends ReactContextBaseJavaModule implements
     imagePipelineFactory.getEncodedMemoryCache().removeAll(AndroidPredicates.<CacheKey>True());
     imagePipelineFactory.getMainDiskStorageCache().clearAll();
     imagePipelineFactory.getSmallImageDiskStorageCache().clearAll();
-  }
-
-  private static ImagePipelineConfig getDefaultConfig(
-      Context context,
-      @Nullable RequestListener listener,
-      @Nullable DiskCacheConfig diskCacheConfig) {
-    HashSet<RequestListener> requestListeners = new HashSet<>();
-    requestListeners.add(new SystraceRequestListener());
-    if (listener != null) {
-      requestListeners.add(listener);
-    }
-
-    OkHttpClient okHttpClient = OkHttpClientProvider.getOkHttpClient();
-    ImagePipelineConfig.Builder builder =
-        OkHttpImagePipelineConfigFactory.newBuilder(context.getApplicationContext(), okHttpClient);
-
-    builder
-        .setDownsampleEnabled(false)
-        .setRequestListeners(requestListeners);
-
-    if (diskCacheConfig != null) {
-      builder.setMainDiskCacheConfig(diskCacheConfig);
-    }
-
-    return builder.build();
-  }
-
-  private static class FrescoHandler implements SoLoaderShim.Handler {
-    @Override
-    public void loadLibrary(String libraryName) {
-      SoLoader.loadLibrary(libraryName);
-    }
   }
 }

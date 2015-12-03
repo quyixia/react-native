@@ -44,26 +44,27 @@ RCT_EXPORT_MODULE()
 
 #pragma mark - Lifecycle
 
-- (void)setBridge:(RCTBridge *)bridge
+- (instancetype)init
 {
-  _bridge = bridge;
+  if ((self = [super init])) {
 
-  // Is this thread-safe?
-  _lastKnownState = RCTCurrentAppBackgroundState();
+    _lastKnownState = RCTCurrentAppBackgroundState();
 
-  for (NSString *name in @[UIApplicationDidBecomeActiveNotification,
-                           UIApplicationDidEnterBackgroundNotification,
-                           UIApplicationDidFinishLaunchingNotification]) {
+    for (NSString *name in @[UIApplicationDidBecomeActiveNotification,
+                             UIApplicationDidEnterBackgroundNotification,
+                             UIApplicationDidFinishLaunchingNotification]) {
+      [[NSNotificationCenter defaultCenter] addObserver:self
+                                               selector:@selector(handleAppStateDidChange)
+                                                   name:name
+                                                 object:nil];
+    }
+
     [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(handleAppStateDidChange)
-                                                 name:name
+                                             selector:@selector(handleMemoryWarning)
+                                                 name:UIApplicationDidReceiveMemoryWarningNotification
                                                object:nil];
   }
-
-  [[NSNotificationCenter defaultCenter] addObserver:self
-                                           selector:@selector(handleMemoryWarning)
-                                               name:UIApplicationDidReceiveMemoryWarningNotification
-                                             object:nil];
+  return self;
 }
 
 - (void)handleMemoryWarning

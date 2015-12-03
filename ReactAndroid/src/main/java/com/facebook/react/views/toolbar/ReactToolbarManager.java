@@ -94,7 +94,7 @@ public class ReactToolbarManager extends ViewGroupManager<ReactToolbar> {
     }
   }
 
-  @ReactProp(name = "nativeActions")
+  @ReactProp(name = "actions")
   public void setActions(ReactToolbar view, @Nullable ReadableArray actions) {
     view.setActions(actions);
   }

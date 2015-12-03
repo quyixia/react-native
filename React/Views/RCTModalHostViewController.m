@@ -9,8 +9,7 @@
 
 #import "RCTModalHostViewController.h"
 
-@implementation RCTModalHostViewController
-{
+@implementation RCTModalHostViewController {
   CGRect _lastViewFrame;
 }
 

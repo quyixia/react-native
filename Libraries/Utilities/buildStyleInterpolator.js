@@ -553,15 +553,8 @@ var createFunctionString = function(anims) {
  * object and returns a boolean describing if any update was actually applied.
  */
 var buildStyleInterpolator = function(anims) {
-  // Defer compiling this method until we really need it.
-  var interpolator = null;
-  function lazyStyleInterpolator(result, value) {
-    if (interpolator === null) {
-      interpolator = Function(createFunctionString(anims))();
-    }
-    return interpolator(result, value);
-  }
-  return lazyStyleInterpolator;
+  return Function(createFunctionString(anims))();
 };
+
 
 module.exports = buildStyleInterpolator;

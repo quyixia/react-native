@@ -51,12 +51,12 @@
   [subview removeFromSuperview];
 }
 
-- (NSArray<UIView *> *)reactSubviews
+- (NSArray<UIView<RCTComponent> *> *)reactSubviews
 {
   return self.subviews;
 }
 
-- (UIView *)reactSuperview
+- (UIView<RCTComponent> *)reactSuperview
 {
   return self.superview;
 }

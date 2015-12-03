@@ -328,11 +328,6 @@ public abstract class BaseJavaModule implements NativeModule {
   }
 
   @Override
-  public boolean canOverrideExistingModule() {
-    return false;
-  }
-
-  @Override
   public void onCatalystInstanceDestroy() {
     // do nothing
   }

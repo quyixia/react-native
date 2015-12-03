@@ -11,7 +11,6 @@
 
 #import <UIKit/UIKit.h>
 
-#import "RCTBorderStyle.h"
 #import "RCTComponent.h"
 #import "RCTPointerEvents.h"
 
@@ -84,10 +83,5 @@
 @property (nonatomic, assign) CGFloat borderBottomWidth;
 @property (nonatomic, assign) CGFloat borderLeftWidth;
 @property (nonatomic, assign) CGFloat borderWidth;
-
-/**
- * Border styles.
- */
-@property (nonatomic, assign) RCTBorderStyle borderStyle;
 
 @end

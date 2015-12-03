@@ -23,14 +23,14 @@
 
 - (void)testEncodingObject
 {
-  NSDictionary<NSString *, id> *obj = @{@"foo": @"bar"};
+  NSDictionary *obj = @{@"foo": @"bar"};
   NSString *json = @"{\"foo\":\"bar\"}";
   XCTAssertEqualObjects(json, RCTJSONStringify(obj, NULL));
 }
 
 - (void)testEncodingArray
 {
-  NSArray<id> *array = @[@"foo", @"bar"];
+  NSArray *array = @[@"foo", @"bar"];
   NSString *json = @"[\"foo\",\"bar\"]";
   XCTAssertEqualObjects(json, RCTJSONStringify(array, NULL));
 }
@@ -44,14 +44,14 @@
 
 - (void)testDecodingObject
 {
-  NSDictionary<NSString *, id> *obj = @{@"foo": @"bar"};
+  NSDictionary *obj = @{@"foo": @"bar"};
   NSString *json = @"{\"foo\":\"bar\"}";
   XCTAssertEqualObjects(obj, RCTJSONParse(json, NULL));
 }
 
 - (void)testDecodingArray
 {
-  NSArray<id> *array = @[@"foo", @"bar"];
+  NSArray *array = @[@"foo", @"bar"];
   NSString *json = @"[\"foo\",\"bar\"]";
   XCTAssertEqualObjects(array, RCTJSONParse(json, NULL));
 }
@@ -66,14 +66,14 @@
 - (void)testDecodingMutableArray
 {
   NSString *json = @"[1,2,3]";
-  NSMutableArray<id> *array = RCTJSONParseMutable(json, NULL);
+  NSMutableArray *array = RCTJSONParseMutable(json, NULL);
   XCTAssertNoThrow([array addObject:@4]);
   XCTAssertEqualObjects(array, (@[@1, @2, @3, @4]));
 }
 
 - (void)testLeadingWhitespace
 {
-  NSDictionary<NSString *, id> *obj = @{@"foo": @"bar"};
+  NSDictionary *obj = @{@"foo": @"bar"};
   NSString *json = @" \r\n\t{\"foo\":\"bar\"}";
   XCTAssertEqualObjects(obj, RCTJSONParse(json, NULL));
 }

@@ -17,7 +17,7 @@ var Platform = require('Platform');
 var RCTDeviceEventEmitter = require('RCTDeviceEventEmitter');
 var RCTNetInfo = NativeModules.NetInfo;
 
-var DEVICE_CONNECTIVITY_EVENT = 'networkStatusDidChange';
+var DEVICE_REACHABILITY_EVENT = 'networkDidChange';
 
 type ChangeEventName = $Enum<{
   change: string;
@@ -53,26 +53,6 @@ type ConnectivityStateAndroid = $Enum<{
   UNKNOWN: string;
 }>;
 
-
-var _subscriptions = new Map();
-
-if (Platform.OS === 'ios') {
-  var _isConnected = function(
-    reachability: ReachabilityStateIOS
-  ): bool {
-    return reachability !== 'none' &&
-      reachability !== 'unknown';
-  };
-} else if (Platform.OS === 'android') {
-  var _isConnected = function(
-      connectionType: ConnectivityStateAndroid
-    ): bool {
-    return connectionType !== 'NONE' && connectionType !== 'UNKNOWN';
-  };
-}
-
-var _isConnectedSubscriptions = new Map();
-
 /**
  * NetInfo exposes info about online/offline status
  *
@@ -104,10 +84,6 @@ var _isConnectedSubscriptions = new Map();
  *
  * ### Android
  *
- * To request network info, you need to add the following line to your
- * app's `AndroidManifest.xml`:
- *
- * `<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />`
  * Asynchronously determine if the device is connected and details about that connection.
  *
  * Android Connectivity Types
@@ -159,13 +135,33 @@ var _isConnectedSubscriptions = new Map();
  * );
  * ```
  */
+
+var _subscriptions = new Map();
+
+if (Platform.OS === 'ios') {
+  var _isConnected = function(
+    reachability: ReachabilityStateIOS
+  ): bool {
+    return reachability !== 'none' &&
+      reachability !== 'unknown';
+  };
+} else if (Platform.OS === 'android') {
+  var _isConnected = function(
+      connectionType: ConnectivityStateAndroid
+    ): bool {
+    return connectionType !== 'NONE' && connectionType !== 'UNKNOWN';
+  };
+}
+
+var _isConnectedSubscriptions = new Map();
+
 var NetInfo = {
   addEventListener: function (
     eventName: ChangeEventName,
     handler: Function
   ): void {
     var listener = RCTDeviceEventEmitter.addListener(
-      DEVICE_CONNECTIVITY_EVENT,
+      DEVICE_REACHABILITY_EVENT,
       (appStateData) => {
         handler(appStateData.network_info);
       }
@@ -187,7 +183,7 @@ var NetInfo = {
 
   fetch: function(): Promise {
     return new Promise((resolve, reject) => {
-      RCTNetInfo.getCurrentConnectivity(
+      RCTNetInfo.getCurrentReachability(
         function(resp) {
           resolve(resp.network_info);
         },

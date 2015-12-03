@@ -93,7 +93,7 @@ public class LayoutShadowNode extends ReactShadowNode {
       ViewProps.MARGIN_RIGHT,
       ViewProps.MARGIN_TOP,
       ViewProps.MARGIN_BOTTOM,
-  }, defaultFloat = CSSConstants.UNDEFINED)
+  }, defaultFloat = 0f)
   public void setMargins(int index, float margin) {
     setMargin(ViewProps.PADDING_MARGIN_SPACING_TYPES[index], PixelUtil.toPixelFromDIP(margin));
   }
@@ -119,7 +119,7 @@ public class LayoutShadowNode extends ReactShadowNode {
       ViewProps.BORDER_RIGHT_WIDTH,
       ViewProps.BORDER_TOP_WIDTH,
       ViewProps.BORDER_BOTTOM_WIDTH,
-  }, defaultFloat = CSSConstants.UNDEFINED)
+  }, defaultFloat = 0f)
   public void setBorderWidths(int index, float borderWidth) {
     setBorder(ViewProps.BORDER_SPACING_TYPES[index], PixelUtil.toPixelFromDIP(borderWidth));
   }

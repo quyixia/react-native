@@ -15,18 +15,17 @@ class Package {
 
   getMain() {
     return this._read().then(json => {
-      var replacements = getReplacements(json)
-      if (typeof replacements === 'string') {
-        return path.join(this.root, replacements);
+      if (typeof json.browser === 'string') {
+        return path.join(this.root, json.browser);
       }
 
       let main = json.main || 'index';
 
-      if (replacements && typeof replacements === 'object') {
-        main = replacements[main] ||
-          replacements[main + '.js'] ||
-          replacements[main + '.json'] ||
-          replacements[main.replace(/(\.js|\.json)$/, '')] ||
+      if (json.browser && typeof json.browser === 'object') {
+        main = json.browser[main] ||
+          json.browser[main + '.js'] ||
+          json.browser[main + '.json'] ||
+          json.browser[main.replace(/(\.js|\.json)$/, '')] ||
           main;
       }
 
@@ -52,14 +51,14 @@ class Package {
 
   redirectRequire(name) {
     return this._read().then(json => {
-      var replacements = getReplacements(json);
+      const {browser} = json;
 
-      if (!replacements || typeof replacements !== 'object') {
+      if (!browser || typeof browser !== 'object') {
         return name;
       }
 
       if (name[0] !== '/') {
-        return replacements[name] || name;
+        return browser[name] || name;
       }
 
       if (!isAbsolutePath(name)) {
@@ -67,9 +66,9 @@ class Package {
       }
 
       const relPath = './' + path.relative(this.root, name);
-      const redirect = replacements[relPath] ||
-              replacements[relPath + '.js'] ||
-              replacements[relPath + '.json'];
+      const redirect = browser[relPath] ||
+              browser[relPath + '.js'] ||
+              browser[relPath + '.json'];
       if (redirect) {
         return path.join(
           this.root,
@@ -89,12 +88,6 @@ class Package {
 
     return this._reading;
   }
-}
-
-function getReplacements(pkg) {
-  return pkg['react-native'] == null
-    ? pkg.browser
-    : pkg['react-native'];
 }
 
 module.exports = Package;

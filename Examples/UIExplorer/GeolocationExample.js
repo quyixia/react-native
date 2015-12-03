@@ -49,15 +49,11 @@ var GeolocationExample = React.createClass({
 
   componentDidMount: function() {
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        var initialPosition = JSON.stringify(position);
-        this.setState({initialPosition});
-      },
+      (initialPosition) => this.setState({initialPosition}),
       (error) => alert(error.message),
       {enableHighAccuracy: true, timeout: 20000, maximumAge: 1000}
     );
-    this.watchID = navigator.geolocation.watchPosition((position) => {
-      var lastPosition = JSON.stringify(position);
+    this.watchID = navigator.geolocation.watchPosition((lastPosition) => {
       this.setState({lastPosition});
     });
   },
@@ -71,11 +67,11 @@ var GeolocationExample = React.createClass({
       <View>
         <Text>
           <Text style={styles.title}>Initial position: </Text>
-          {this.state.initialPosition}
+          {JSON.stringify(this.state.initialPosition)}
         </Text>
         <Text>
           <Text style={styles.title}>Current position: </Text>
-          {this.state.lastPosition}
+          {JSON.stringify(this.state.lastPosition)}
         </Text>
       </View>
     );

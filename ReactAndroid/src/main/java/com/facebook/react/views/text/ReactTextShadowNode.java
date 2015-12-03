@@ -14,7 +14,6 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
-import android.content.res.Resources;
 import android.graphics.Typeface;
 import android.text.BoringLayout;
 import android.text.Layout;
@@ -44,20 +43,19 @@ import com.facebook.react.uimanager.ViewProps;
 
 /**
  * {@link ReactShadowNode} class for spannable text view.
- * <p/>
+ *
  * This node calculates {@link Spannable} based on subnodes of the same type and passes the
- * resulting object down to textview's shadowview and actual native {@link TextView} instance. It is
- * important to keep in mind that {@link Spannable} is calculated only on layout step, so if there
- * are any text properties that may/should affect the result of {@link Spannable} they should be set
- * in a corresponding {@link ReactTextShadowNode}. Resulting {@link Spannable} object is then then
- * passed as "computedDataFromMeasure" down to shadow and native view.
- * <p/>
- * TODO(7255858): Rename *CSSNode to *ShadowView (or sth similar) as it's no longer is used solely
- * for layouting
+ * resulting object down to textview's shadowview and actual native {@link TextView} instance.
+ * It is important to keep in mind that {@link Spannable} is calculated only on layout step, so if
+ * there are any text properties that may/should affect the result of {@link Spannable} they should
+ * be set in a corresponding {@link ReactTextShadowNode}. Resulting {@link Spannable} object is then
+ * then passed as "computedDataFromMeasure" down to shadow and native view.
+ *
+ * TODO(7255858): Rename *CSSNode to *ShadowView (or sth similar) as it's no longer is used
+ * solely for layouting
  */
 public class ReactTextShadowNode extends LayoutShadowNode {
 
-  private static final String INLINE_IMAGE_PLACEHOLDER = "I";
   public static final int UNSET = -1;
 
   @VisibleForTesting
@@ -100,13 +98,11 @@ public class ReactTextShadowNode extends LayoutShadowNode {
       CSSNode child = textCSSNode.getChildAt(i);
       if (child instanceof ReactTextShadowNode) {
         buildSpannedFromTextCSSNode((ReactTextShadowNode) child, sb, ops);
-      } else if (child instanceof ReactTextInlineImageShadowNode) {
-        buildSpannedFromImageNode((ReactTextInlineImageShadowNode) child, sb, ops);
       } else {
         throw new IllegalViewOperationException("Unexpected view type nested under text node: "
-                + child.getClass());
+            + child.getClass());
       }
-      ((ReactShadowNode) child).markUpdateSeen();
+      ((ReactTextShadowNode) child).markUpdateSeen();
     }
     int end = sb.length();
     if (end >= start) {
@@ -132,36 +128,13 @@ public class ReactTextShadowNode extends LayoutShadowNode {
                 new CustomStyleSpan(
                     textCSSNode.mFontStyle,
                     textCSSNode.mFontWeight,
-                    textCSSNode.mFontFamily,
-                    textCSSNode.getThemedContext().getAssets())));
+                    textCSSNode.mFontFamily)));
       }
       ops.add(new SetSpanOperation(start, end, new ReactTagSpan(textCSSNode.getReactTag())));
     }
   }
 
-  private static final void buildSpannedFromImageNode(
-      ReactTextInlineImageShadowNode node,
-      SpannableStringBuilder sb,
-      List<SetSpanOperation> ops) {
-    int start = sb.length();
-    // Create our own internal ImageSpan which will allow us to correctly layout the Image
-    Resources resources = node.getThemedContext().getResources();
-    int height = (int) PixelUtil.toDIPFromPixel(node.getStyleHeight());
-    int width = (int) PixelUtil.toDIPFromPixel(node.getStyleWidth());
-    TextInlineImageSpan imageSpan = new TextInlineImageSpan(
-        resources,
-        height,
-        width,
-        node.getUri(),
-        node.getDraweeControllerBuilder(),
-        node.getCallerContext());
-    // We make the image take up 1 character in the span and put a corresponding character into the
-    // text so that the image doesn't run over any following text.
-    sb.append(INLINE_IMAGE_PLACEHOLDER);
-    ops.add(new SetSpanOperation(start, sb.length(), imageSpan));
-  }
-
-  protected static final Spannable fromTextCSSNode(ReactTextShadowNode textCSSNode) {
+  protected static final Spanned fromTextCSSNode(ReactTextShadowNode textCSSNode) {
     SpannableStringBuilder sb = new SpannableStringBuilder();
     // TODO(5837930): Investigate whether it's worth optimizing this part and do it if so
 
@@ -177,15 +150,8 @@ public class ReactTextShadowNode extends LayoutShadowNode {
           sb.length(),
           Spannable.SPAN_INCLUSIVE_EXCLUSIVE);
     }
-
-    textCSSNode.mContainsImages = false;
-
-    // While setting the Spans on the final text, we also check whether any of them are images
     for (int i = ops.size() - 1; i >= 0; i--) {
       SetSpanOperation op = ops.get(i);
-      if (op.what instanceof TextInlineImageSpan) {
-        textCSSNode.mContainsImages = true;
-      }
       op.execute(sb);
     }
     return sb;
@@ -200,7 +166,7 @@ public class ReactTextShadowNode extends LayoutShadowNode {
           TextPaint textPaint = sTextPaintInstance;
           Layout layout;
           Spanned text = Assertions.assertNotNull(
-              reactCSSNode.mPreparedSpannableText,
+              reactCSSNode.mPreparedSpannedText,
               "Spannable element has not been prepared in onBeforeLayout");
           BoringLayout.Metrics boring = BoringLayout.isBoring(text, textPaint);
           float desiredWidth = boring == null ?
@@ -231,7 +197,7 @@ public class ReactTextShadowNode extends LayoutShadowNode {
                 0,
                 boring,
                 true);
-          } else {
+          } else  {
             // Is used for multiline, boring text and the width is known.
             layout = new StaticLayout(
                 text,
@@ -305,17 +271,15 @@ public class ReactTextShadowNode extends LayoutShadowNode {
   private @Nullable String mFontFamily = null;
   private @Nullable String mText = null;
 
-  private @Nullable Spannable mPreparedSpannableText;
+  private @Nullable Spanned mPreparedSpannedText;
   private final boolean mIsVirtual;
-
-  protected boolean mContainsImages = false;
 
   @Override
   public void onBeforeLayout() {
     if (mIsVirtual) {
       return;
     }
-    mPreparedSpannableText = fromTextCSSNode(this);
+    mPreparedSpannedText = fromTextCSSNode(this);
     markUpdated();
   }
 
@@ -429,10 +393,8 @@ public class ReactTextShadowNode extends LayoutShadowNode {
       return;
     }
     super.onCollectExtraUpdates(uiViewOperationQueue);
-    if (mPreparedSpannableText != null) {
-      ReactTextUpdate reactTextUpdate =
-          new ReactTextUpdate(mPreparedSpannableText, UNSET, mContainsImages);
-      uiViewOperationQueue.enqueueUpdateExtraData(getReactTag(), reactTextUpdate);
+    if (mPreparedSpannedText != null) {
+      uiViewOperationQueue.enqueueUpdateExtraData(getReactTag(), mPreparedSpannedText);
     }
   }
 

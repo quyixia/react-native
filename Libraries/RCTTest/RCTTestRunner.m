@@ -68,38 +68,25 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
 - (void)runTest:(SEL)test module:(NSString *)moduleName
 {
-  [self runTest:test module:moduleName initialProps:nil configurationBlock:nil expectErrorBlock:nil];
+  [self runTest:test module:moduleName initialProps:nil expectErrorBlock:nil];
 }
 
 - (void)runTest:(SEL)test module:(NSString *)moduleName
-   initialProps:(NSDictionary<NSString *, id> *)initialProps
-configurationBlock:(void(^)(RCTRootView *rootView))configurationBlock
+   initialProps:(NSDictionary *)initialProps expectErrorRegex:(NSString *)errorRegex
 {
-  [self runTest:test module:moduleName initialProps:initialProps configurationBlock:configurationBlock expectErrorBlock:nil];
-}
-
-- (void)runTest:(SEL)test module:(NSString *)moduleName
-   initialProps:(NSDictionary<NSString *, id> *)initialProps
-configurationBlock:(void(^)(RCTRootView *rootView))configurationBlock
-expectErrorRegex:(NSString *)errorRegex
-{
-  BOOL(^expectErrorBlock)(NSString *error)  = ^BOOL(NSString *error){
+  [self runTest:test module:moduleName initialProps:initialProps expectErrorBlock:^BOOL(NSString *error){
     return [error rangeOfString:errorRegex options:NSRegularExpressionSearch].location != NSNotFound;
-  };
-
-  [self runTest:test module:moduleName initialProps:initialProps configurationBlock:configurationBlock expectErrorBlock:expectErrorBlock];
+  }];
 }
 
 - (void)runTest:(SEL)test module:(NSString *)moduleName
-   initialProps:(NSDictionary<NSString *, id> *)initialProps
-configurationBlock:(void(^)(RCTRootView *rootView))configurationBlock
-expectErrorBlock:(BOOL(^)(NSString *error))expectErrorBlock
+   initialProps:(NSDictionary *)initialProps expectErrorBlock:(BOOL(^)(NSString *error))expectErrorBlock
 {
   __weak id weakJSContext;
 
   @autoreleasepool {
     __block NSString *error = nil;
-    RCTSetLogFunction(^(RCTLogLevel level, RCTLogSource source, NSString *fileName, NSNumber *lineNumber, NSString *message) {
+    RCTSetLogFunction(^(RCTLogLevel level, NSString *fileName, NSNumber *lineNumber, NSString *message) {
       if (level >= RCTLogLevelError) {
         error = message;
       }
@@ -112,7 +99,8 @@ expectErrorBlock:(BOOL(^)(NSString *error))expectErrorBlock
     RCTRootView *rootView = [[RCTRootView alloc] initWithBridge:bridge moduleName:moduleName initialProperties:initialProps];
     rootView.frame = CGRectMake(0, 0, 320, 2000); // Constant size for testing on multiple devices
 
-    RCTTestModule *testModule = [rootView.bridge moduleForClass:[RCTTestModule class]];
+    NSString *testModuleName = RCTBridgeModuleNameForClass([RCTTestModule class]);
+    RCTTestModule *testModule = rootView.bridge.modules[testModuleName];
     RCTAssert(_testController != nil, @"_testController should not be nil");
     testModule.controller = _testController;
     testModule.testSelector = test;
@@ -121,10 +109,6 @@ expectErrorBlock:(BOOL(^)(NSString *error))expectErrorBlock
     UIViewController *vc = [UIApplication sharedApplication].delegate.window.rootViewController;
     vc.view = [UIView new];
     [vc.view addSubview:rootView]; // Add as subview so it doesn't get resized
-
-    if (configurationBlock) {
-      configurationBlock(rootView);
-    }
 
     NSDate *date = [NSDate dateWithTimeIntervalSinceNow:kTestTimeoutSeconds];
     while (date.timeIntervalSinceNow > 0 && testModule.status == RCTTestStatusPending && error == nil) {

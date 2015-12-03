@@ -137,7 +137,7 @@ id RCTJSONClean(id object)
 
   if ([object isKindOfClass:[NSDictionary class]]) {
     __block BOOL copy = NO;
-    NSMutableDictionary<NSString *, id> *values = [[NSMutableDictionary alloc] initWithCapacity:[object count]];
+    NSMutableDictionary *values = [[NSMutableDictionary alloc] initWithCapacity:[object count]];
     [object enumerateKeysAndObjectsUsingBlock:^(NSString *key, id item, __unused BOOL *stop) {
       id value = RCTJSONClean(item);
       values[key] = value;
@@ -183,29 +183,18 @@ NSString *RCTMD5Hash(NSString *string)
   ];
 }
 
-void RCTExecuteOnMainThread(dispatch_block_t block, BOOL sync)
-{
-  if ([NSThread isMainThread]) {
-    block();
-  } else if (sync) {
-    dispatch_sync(dispatch_get_main_queue(), ^{
-      block();
-    });
-  } else {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      block();
-    });
-  }
-}
-
 CGFloat RCTScreenScale()
 {
   static CGFloat scale;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-    RCTExecuteOnMainThread(^{
+    if (![NSThread isMainThread]) {
+      dispatch_sync(dispatch_get_main_queue(), ^{
+        scale = [UIScreen mainScreen].scale;
+      });
+    } else {
       scale = [UIScreen mainScreen].scale;
-    }, YES);
+    }
   });
 
   return scale;
@@ -216,9 +205,13 @@ CGSize RCTScreenSize()
   static CGSize size;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-    RCTExecuteOnMainThread(^{
+    if (![NSThread isMainThread]) {
+      dispatch_sync(dispatch_get_main_queue(), ^{
+        size = [UIScreen mainScreen].bounds.size;
+      });
+    } else {
       size = [UIScreen mainScreen].bounds.size;
-    }, YES);
+    }
   });
 
   return size;
@@ -295,30 +288,30 @@ BOOL RCTClassOverridesInstanceMethod(Class cls, SEL selector)
   return NO;
 }
 
-NSDictionary<NSString *, id> *RCTMakeError(NSString *message, id toStringify, NSDictionary<NSString *, id> *extraData)
+NSDictionary *RCTMakeError(NSString *message, id toStringify, NSDictionary *extraData)
 {
   if (toStringify) {
     message = [message stringByAppendingString:[toStringify description]];
   }
 
-  NSMutableDictionary<NSString *, id> *error = [NSMutableDictionary dictionaryWithDictionary:extraData];
+  NSMutableDictionary *error = [NSMutableDictionary dictionaryWithDictionary:extraData];
   error[@"message"] = message;
   return error;
 }
 
-NSDictionary<NSString *, id> *RCTMakeAndLogError(NSString *message, id toStringify, NSDictionary<NSString *, id> *extraData)
+NSDictionary *RCTMakeAndLogError(NSString *message, id toStringify, NSDictionary *extraData)
 {
-  NSDictionary<NSString *, id> *error = RCTMakeError(message, toStringify, extraData);
+  NSDictionary *error = RCTMakeError(message, toStringify, extraData);
   RCTLogError(@"\nError: %@", error);
   return error;
 }
 
 // TODO: Can we just replace RCTMakeError with this function instead?
-NSDictionary<NSString *, id> *RCTJSErrorFromNSError(NSError *error)
+NSDictionary *RCTJSErrorFromNSError(NSError *error)
 {
   NSString *errorMessage;
   NSArray<NSString *> *stackTrace = [NSThread callStackSymbols];
-  NSMutableDictionary<NSString *, id> *errorInfo =
+  NSMutableDictionary *errorInfo =
     [NSMutableDictionary dictionaryWithObject:stackTrace forKey:@"nativeStackIOS"];
 
   if (error) {
@@ -406,7 +399,7 @@ BOOL RCTImageHasAlpha(CGImageRef image)
 
 NSError *RCTErrorWithMessage(NSString *message)
 {
-  NSDictionary<NSString *, id> *errorInfo = @{NSLocalizedDescriptionKey: message};
+  NSDictionary *errorInfo = @{NSLocalizedDescriptionKey: message};
   return [[NSError alloc] initWithDomain:RCTErrorDomain code:0 userInfo:errorInfo];
 }
 
@@ -418,11 +411,6 @@ id RCTNullIfNil(id value)
 id RCTNilIfNull(id value)
 {
   return value == (id)kCFNull ? nil : value;
-}
-
-RCT_EXTERN double RCTZeroIfNaN(double value)
-{
-  return isnan(value) || isinf(value) ? 0 : value;
 }
 
 NSURL *RCTDataURL(NSString *mimeType, NSData *data)
@@ -515,71 +503,4 @@ BOOL RCTIsXCAssetURL(NSURL *imageURL)
     return NO;
   }
   return YES;
-}
-
-static void RCTGetRGBAColorComponents(CGColorRef color, CGFloat rgba[4])
-{
-  CGColorSpaceModel model = CGColorSpaceGetModel(CGColorGetColorSpace(color));
-  const CGFloat *components = CGColorGetComponents(color);
-  switch (model)
-  {
-    case kCGColorSpaceModelMonochrome:
-    {
-      rgba[0] = components[0];
-      rgba[1] = components[0];
-      rgba[2] = components[0];
-      rgba[3] = components[1];
-      break;
-    }
-    case kCGColorSpaceModelRGB:
-    {
-      rgba[0] = components[0];
-      rgba[1] = components[1];
-      rgba[2] = components[2];
-      rgba[3] = components[3];
-      break;
-    }
-    case kCGColorSpaceModelCMYK:
-    case kCGColorSpaceModelDeviceN:
-    case kCGColorSpaceModelIndexed:
-    case kCGColorSpaceModelLab:
-    case kCGColorSpaceModelPattern:
-    case kCGColorSpaceModelUnknown:
-    {
-
-#ifdef RCT_DEBUG
-      //unsupported format
-      RCTLogError(@"Unsupported color model: %i", model);
-#endif
-
-      rgba[0] = 0.0;
-      rgba[1] = 0.0;
-      rgba[2] = 0.0;
-      rgba[3] = 1.0;
-      break;
-    }
-  }
-}
-
-NSString *RCTColorToHexString(CGColorRef color)
-{
-  CGFloat rgba[4];
-  RCTGetRGBAColorComponents(color, rgba);
-  uint8_t r = rgba[0]*255;
-  uint8_t g = rgba[1]*255;
-  uint8_t b = rgba[2]*255;
-  uint8_t a = rgba[3]*255;
-  if (a < 255) {
-    return [NSString stringWithFormat:@"#%02x%02x%02x%02x", r, g, b, a];
-  } else {
-    return [NSString stringWithFormat:@"#%02x%02x%02x", r, g, b];
-  }
-}
-
-
-// (https://github.com/0xced/XCDFormInputAccessoryView/blob/master/XCDFormInputAccessoryView/XCDFormInputAccessoryView.m#L10-L14)
-RCT_EXTERN NSString *RCTUIKitLocalizedString(NSString *string)
-{
-  NSBundle *UIKitBundle = [NSBundle bundleForClass:[UIApplication class]];
-  return UIKitBundle ? [UIKitBundle localizedStringForKey:string value:string table:nil] : string;
 }

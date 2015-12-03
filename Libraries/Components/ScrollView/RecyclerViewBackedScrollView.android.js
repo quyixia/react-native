@@ -9,8 +9,6 @@ var NativeMethodsMixin = require('NativeMethodsMixin');
 var React = require('React');
 var ScrollResponder = require('ScrollResponder');
 var ScrollView = require('ScrollView');
-var View = require('View');
-var StyleSheet = require('StyleSheet');
 
 var requireNativeComponent = require('requireNativeComponent');
 
@@ -67,13 +65,12 @@ var RecyclerViewBackedScrollView = React.createClass({
     return this;
   },
 
-  setNativeProps: function(props: Object) {
-    this.refs[INNERVIEW].setNativeProps(props);
+  getInnerViewNode: function(): any {
+    return React.findNodeHandle(this.refs[INNERVIEW]);
   },
 
-  _handleContentSizeChange: function(event) {
-    var {width, height} = event.nativeEvent;
-    this.props.onContentSizeChange(width, height);
+  setNativeProps: function(props: Object) {
+    this.refs[INNERVIEW].setNativeProps(props);
   },
 
   render: function() {
@@ -96,44 +93,13 @@ var RecyclerViewBackedScrollView = React.createClass({
       style: ([{flex: 1}, this.props.style]: ?Array<any>),
       ref: INNERVIEW,
     };
-
-    if (this.props.onContentSizeChange) {
-      props.onContentSizeChange = this._handleContentSizeChange;
-    }
-
-    var wrappedChildren = React.Children.map(this.props.children, (child) => {
-      if (!child) {
-        return null;
-      }
-      return (
-        <View
-          collapsable={false}
-          style={styles.absolute}>
-          {child}
-        </View>
-      );
-    });
-
     return (
-      <NativeAndroidRecyclerView {...props}>
-        {wrappedChildren}
-      </NativeAndroidRecyclerView>
+      <NativeAndroidRecyclerView {...props}/>
     );
   },
+
 });
 
-var styles = StyleSheet.create({
-  absolute: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-});
-
-var NativeAndroidRecyclerView = requireNativeComponent(
-  'AndroidRecyclerViewBackedScrollView',
-  RecyclerViewBackedScrollView
-);
+var NativeAndroidRecyclerView = requireNativeComponent('AndroidRecyclerViewBackedScrollView', null);
 
 module.exports = RecyclerViewBackedScrollView;

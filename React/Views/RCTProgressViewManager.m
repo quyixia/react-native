@@ -36,7 +36,7 @@ RCT_EXPORT_VIEW_PROPERTY(trackTintColor, UIColor)
 RCT_EXPORT_VIEW_PROPERTY(progressImage, UIImage)
 RCT_EXPORT_VIEW_PROPERTY(trackImage, UIImage)
 
-- (NSDictionary<NSString *, id> *)constantsToExport
+- (NSDictionary *)constantsToExport
 {
   UIProgressView *view = [UIProgressView new];
   return @{

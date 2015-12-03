@@ -20,12 +20,18 @@
 
 RCT_EXPORT_MODULE()
 
+- (instancetype)init
+{
+  if ((self = [super init])) {
+    _hostViews = [NSHashTable weakObjectsHashTable];
+  }
+
+  return self;
+}
+
 - (UIView *)view
 {
   UIView *view = [[RCTModalHostView alloc] initWithBridge:self.bridge];
-  if (_hostViews) {
-    _hostViews = [NSHashTable weakObjectsHashTable];
-  }
   [_hostViews addObject:view];
   return view;
 }

@@ -11,7 +11,7 @@
  * AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  *
- * @flow weak
+ * @flow-weak
  */
 'use strict';
 
@@ -79,8 +79,7 @@ var PanResponderExample = React.createClass({
   },
 
   _highlight: function() {
-    const circle = this.circle;
-    circle && circle.setNativeProps({
+    this.circle && this.circle.setNativeProps({
       style: {
         backgroundColor: processColor(CIRCLE_HIGHLIGHT_COLOR)
       }
@@ -88,8 +87,7 @@ var PanResponderExample = React.createClass({
   },
 
   _unHighlight: function() {
-    const circle = this.circle;
-    circle && circle.setNativeProps({
+    this.circle && this.circle.setNativeProps({
       style: {
         backgroundColor: processColor(CIRCLE_COLOR)
       }

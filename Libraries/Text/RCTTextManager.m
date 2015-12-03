@@ -15,6 +15,7 @@
 #import "RCTLog.h"
 #import "RCTShadowRawText.h"
 #import "RCTShadowText.h"
+#import "RCTSparseArray.h"
 #import "RCTText.h"
 #import "RCTTextView.h"
 #import "UIView+React.h"
@@ -60,10 +61,10 @@ RCT_EXPORT_SHADOW_PROPERTY(writingDirection, NSWritingDirection)
 RCT_EXPORT_SHADOW_PROPERTY(allowFontScaling, BOOL)
 RCT_EXPORT_SHADOW_PROPERTY(opacity, CGFloat)
 
-- (RCTViewManagerUIBlock)uiBlockToAmendWithShadowViewRegistry:(NSDictionary<NSNumber *, RCTShadowView *> *)shadowViewRegistry
+- (RCTViewManagerUIBlock)uiBlockToAmendWithShadowViewRegistry:(RCTSparseArray *)shadowViewRegistry
 {
   NSMutableSet *textViewTagsToUpdate = [NSMutableSet new];
-  for (RCTShadowView *rootView in shadowViewRegistry.allValues) {
+  for (RCTShadowView *rootView in shadowViewRegistry.allObjects) {
     if (![rootView isReactRootView]) {
       // This isn't a root view
       continue;
@@ -134,7 +135,7 @@ RCT_EXPORT_SHADOW_PROPERTY(opacity, CGFloat)
       CGFloat width = shadowText.frame.size.width - (padding.left + padding.right);
       NSTextStorage *textStorage = [shadowText buildTextStorageForWidth:width];
 
-      [uiBlocks addObject:^(RCTUIManager *uiManager, NSDictionary<NSNumber *, RCTTextView *> *viewRegistry) {
+      [uiBlocks addObject:^(RCTUIManager *uiManager, RCTSparseArray *viewRegistry) {
         RCTTextView *textView = viewRegistry[reactTag];
         RCTText *text;
         for (RCTText *subview in textView.reactSubviews) {
@@ -149,7 +150,7 @@ RCT_EXPORT_SHADOW_PROPERTY(opacity, CGFloat)
       }];
     }
 
-    return ^(RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+    return ^(RCTUIManager *uiManager, RCTSparseArray *viewRegistry) {
       for (RCTViewManagerUIBlock uiBlock in uiBlocks) {
         uiBlock(uiManager, viewRegistry);
       }
@@ -164,7 +165,7 @@ RCT_EXPORT_SHADOW_PROPERTY(opacity, CGFloat)
   NSNumber *reactTag = shadowView.reactTag;
   UIEdgeInsets padding = shadowView.paddingAsInsets;
 
-  return ^(RCTUIManager *uiManager, NSDictionary<NSNumber *, RCTText *> *viewRegistry) {
+  return ^(RCTUIManager *uiManager, RCTSparseArray *viewRegistry) {
     RCTText *text = viewRegistry[reactTag];
     text.contentInset = padding;
   };

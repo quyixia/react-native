@@ -10,7 +10,7 @@
 /*jslint node: true */
 'use strict';
 
-const t = require('babel-types');
+var t = require('babel-core').types;
 
 /**
  * Transforms asynchronous module importing into a function call
@@ -24,32 +24,34 @@ const t = require('babel-types');
  *
  *  loadBundles('bundleA')
  */
-module.exports = function() {
-  return {
-    visitor: {
-      CallExpression: function (path, state) {
-        if (!isAppropriateSystemImportCall(path.node)) {
-          return;
-        }
+module.exports = function systemImportTransform(babel) {
+  return new babel.Transformer('system-import', {
+    CallExpression: function(node, parent, scope, state) {
+      if (!isAppropriateSystemImportCall(node, parent)) {
+        return node;
+      }
 
-        var bundlesLayout = state.opts.bundlesLayout;
-        var bundleID = bundlesLayout.getBundleIDForModule(
-          path.node.arguments[0].value
-        );
+      var bundlesLayout = state.opts.extra.bundlesLayout;
+      var bundleID = bundlesLayout.getBundleIDForModule(
+        node.arguments[0].value
+      );
 
-        var bundles = bundleID.split('.');
-        bundles.splice(0, 1);
-        bundles = bundles.map(function(id) {
-          return t.stringLiteral('bundle.' + id);
-        });
+      var bundles = bundleID.split('.');
+      bundles.splice(0, 1);
+      bundles = bundles.map(function(id) {
+        return t.literal('bundle.' + id);
+      });
 
-        path.replaceWith(t.callExpression(
-          t.identifier('loadBundles'),
-          [t.arrayExpression(bundles)]
-        ));
-      },
+      return t.callExpression(
+        t.identifier('loadBundles'),
+        [t.arrayExpression(bundles)]
+      );
     },
-  };
+
+    metadata: {
+      group: 'fb'
+    }
+  });
 };
 
 function isAppropriateSystemImportCall(node) {
@@ -58,6 +60,6 @@ function isAppropriateSystemImportCall(node) {
     node.callee.object.name === 'System' &&
     node.callee.property.name === 'import' &&
     node.arguments.length === 1 &&
-    node.arguments[0].type === 'StringLiteral'
+    node.arguments[0].type === 'Literal'
   );
 }

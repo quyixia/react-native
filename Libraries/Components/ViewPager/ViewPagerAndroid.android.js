@@ -2,7 +2,6 @@
  * Copyright 2004-present Facebook. All Rights Reserved.
  *
  * @providesModule ViewPagerAndroid
- * @flow
  */
 'use strict';
 
@@ -11,13 +10,15 @@ var React = require('React');
 var ReactElement = require('ReactElement');
 var ReactNativeViewAttributes = require('ReactNativeViewAttributes');
 var ReactPropTypes = require('ReactPropTypes');
-var UIManager = require('UIManager');
-var View = require('View');
 
+var createReactNativeComponentClass = require('createReactNativeComponentClass');
 var dismissKeyboard = require('dismissKeyboard');
-var requireNativeComponent = require('requireNativeComponent');
 
 var VIEWPAGER_REF = 'viewPager';
+
+var ViewPagerValidAttributes = {
+  selectedPage: true,
+};
 
 /**
  * Container that allows to flip left and right between child views. Each
@@ -60,7 +61,6 @@ var VIEWPAGER_REF = 'viewPager';
 var ViewPagerAndroid = React.createClass({
 
   propTypes: {
-    ...View.propTypes,
     /**
      * Index of initial page that should be selected. Use `setPage` method to
      * update the page, and `onPageSelected` to monitor page changes
@@ -97,17 +97,17 @@ var ViewPagerAndroid = React.createClass({
     ]),
   },
 
-  componentDidMount: function() {
-    if (this.props.initialPage) {
-      this.setPageWithoutAnimation(this.props.initialPage);
-    }
+  getInitialState: function() {
+    return {
+      selectedPage: this.props.initialPage,
+    };
   },
 
-  getInnerViewNode: function(): ReactComponent {
+  getInnerViewNode: function() {
     return this.refs[VIEWPAGER_REF].getInnerViewNode();
   },
 
-  _childrenWithOverridenStyle: function(): Array {
+  _childrenWithOverridenStyle: function() {
     // Override styles so that each page will fill the parent. Native component
     // will handle positioning of elements, so it's not important to offset
     // them correctly.
@@ -134,51 +134,34 @@ var ViewPagerAndroid = React.createClass({
       return ReactElement.createElement(child.type, newProps);
     });
   },
-
-  _onPageScroll: function(e: Event) {
+  _onPageScroll: function(event) {
     if (this.props.onPageScroll) {
-      this.props.onPageScroll(e);
+      this.props.onPageScroll(event);
     }
     if (this.props.keyboardDismissMode === 'on-drag') {
       dismissKeyboard();
     }
   },
-
-  _onPageSelected: function(e: Event) {
+  _onPageSelected: function(event) {
+    var selectedPage = event.nativeEvent.position;
+    this.setState({
+      selectedPage,
+    });
     if (this.props.onPageSelected) {
-      this.props.onPageSelected(e);
+      this.props.onPageSelected(event);
     }
   },
-
-  /**
-   * A helper function to scroll to a specific page in the ViewPager.
-   * The transition between pages will be animated.
-   */
-  setPage: function(selectedPage: number) {
-    UIManager.dispatchViewManagerCommand(
-      React.findNodeHandle(this),
-      UIManager.AndroidViewPager.Commands.setPage,
-      [selectedPage],
-    );
+  setPage: function(selectedPage) {
+    this.setState({
+      selectedPage,
+    });
   },
-
-  /**
-   * A helper function to scroll to a specific page in the ViewPager.
-   * The transition between pages will be *not* be animated.
-   */
-  setPageWithoutAnimation: function(selectedPage: number) {
-    UIManager.dispatchViewManagerCommand(
-      React.findNodeHandle(this),
-      UIManager.AndroidViewPager.Commands.setPageWithoutAnimation,
-      [selectedPage],
-    );
-  },
-
   render: function() {
     return (
       <NativeAndroidViewPager
         ref={VIEWPAGER_REF}
         style={this.props.style}
+        selectedPage={this.state.selectedPage}
         onPageScroll={this._onPageScroll}
         onPageSelected={this._onPageSelected}
         children={this._childrenWithOverridenStyle()}
@@ -187,6 +170,12 @@ var ViewPagerAndroid = React.createClass({
   },
 });
 
-var NativeAndroidViewPager = requireNativeComponent('AndroidViewPager', ViewPagerAndroid);
+var NativeAndroidViewPager = createReactNativeComponentClass({
+  validAttributes: {
+    ...ReactNativeViewAttributes.UIView,
+    ...ViewPagerValidAttributes,
+  },
+  uiViewClassName: 'AndroidViewPager',
+});
 
 module.exports = ViewPagerAndroid;

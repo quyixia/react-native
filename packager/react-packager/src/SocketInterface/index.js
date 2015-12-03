@@ -35,17 +35,10 @@ const SocketInterface = {
         }
       });
 
-      let sockPath = path.join(
+      const sockPath = path.join(
         tmpdir,
         'react-packager-' + hash.digest('hex')
       );
-      if (process.platform === 'win32'){
-        // on Windows, use a named pipe, convert sockPath into a valid pipe name
-        // based on https://gist.github.com/domenic/2790533
-        sockPath = sockPath.replace(/^\//, '')
-        sockPath = sockPath.replace(/\//g, '-')
-        sockPath = '\\\\.\\pipe\\' + sockPath
-      }
 
       if (fs.existsSync(sockPath)) {
         var sock = net.connect(sockPath);

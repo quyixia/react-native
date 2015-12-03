@@ -17,7 +17,7 @@ import java.util.Map;
  * Class that stores the mapping between native view name used in JS and the corresponding instance
  * of {@link ViewManager}.
  */
-public class ViewManagerRegistry {
+/* package */ class ViewManagerRegistry {
 
   private final Map<String, ViewManager> mViewManagers = new HashMap<>();
 
@@ -27,7 +27,7 @@ public class ViewManagerRegistry {
     }
   }
 
-  public ViewManager get(String className) {
+  /* package */ ViewManager get(String className) {
     ViewManager viewManager = mViewManagers.get(className);
     if (viewManager != null) {
       return viewManager;

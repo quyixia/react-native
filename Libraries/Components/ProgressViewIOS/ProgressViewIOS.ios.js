@@ -17,7 +17,6 @@ var NativeModules = require('NativeModules');
 var PropTypes = require('ReactPropTypes');
 var React = require('React');
 var StyleSheet = require('StyleSheet');
-var View = require('View');
 
 var requireNativeComponent = require('requireNativeComponent');
 
@@ -28,7 +27,6 @@ var ProgressViewIOS = React.createClass({
   mixins: [NativeMethodsMixin],
 
   propTypes: {
-    ...View.propTypes,
     /**
      * The progress bar style.
      */

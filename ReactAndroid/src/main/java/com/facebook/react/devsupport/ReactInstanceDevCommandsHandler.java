@@ -9,7 +9,7 @@
 
 package com.facebook.react.devsupport;
 
-import com.facebook.react.bridge.JavaJSExecutor;
+import com.facebook.react.bridge.ProxyJavaScriptExecutor;
 
 /**
  * Interface used by {@link DevSupportManager} for requesting React instance recreation
@@ -20,7 +20,7 @@ public interface ReactInstanceDevCommandsHandler {
   /**
    * Request react instance recreation with JS debugging enabled.
    */
-  void onReloadWithJSDebugger(JavaJSExecutor proxyExecutor);
+  void onReloadWithJSDebugger(ProxyJavaScriptExecutor proxyExecutor);
 
   /**
    * Notify react instance manager about new JS bundle version downloaded from the server.

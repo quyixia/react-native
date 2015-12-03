@@ -10,8 +10,7 @@
 
 jest.dontMock('../')
   .dontMock('underscore')
-  .dontMock('../../DependencyResolver/lib/extractRequires')
-  .dontMock('../../DependencyResolver/lib/replacePatterns');
+  .dontMock('../../DependencyResolver/replacePatterns');
 
 jest.mock('path');
 
@@ -79,15 +78,27 @@ describe('Resolver', function() {
           expect(result.mainModuleId).toEqual('index');
           expect(result.dependencies[result.dependencies.length - 1]).toBe(module);
           expect(_.pluck(Polyfill.mock.calls, 0)).toEqual([
+            { path: 'polyfills/prelude.js',
+              id: 'polyfills/prelude.js',
+              isPolyfill: true,
+              dependencies: []
+            },
+            { path: 'polyfills/require.js',
+              id: 'polyfills/require.js',
+              isPolyfill: true,
+              dependencies: ['polyfills/prelude.js']
+            },
             { path: 'polyfills/polyfills.js',
               id: 'polyfills/polyfills.js',
               isPolyfill: true,
-              dependencies: []
+              dependencies: ['polyfills/prelude.js', 'polyfills/require.js']
             },
             { id: 'polyfills/console.js',
               isPolyfill: true,
               path: 'polyfills/console.js',
               dependencies: [
+                'polyfills/prelude.js',
+                'polyfills/require.js',
                 'polyfills/polyfills.js'
               ],
             },
@@ -95,6 +106,8 @@ describe('Resolver', function() {
               isPolyfill: true,
               path: 'polyfills/error-guard.js',
               dependencies: [
+                'polyfills/prelude.js',
+                'polyfills/require.js',
                 'polyfills/polyfills.js',
                 'polyfills/console.js'
               ],
@@ -103,6 +116,8 @@ describe('Resolver', function() {
               isPolyfill: true,
               path: 'polyfills/String.prototype.es6.js',
               dependencies: [
+                'polyfills/prelude.js',
+                'polyfills/require.js',
                 'polyfills/polyfills.js',
                 'polyfills/console.js',
                 'polyfills/error-guard.js'
@@ -112,33 +127,12 @@ describe('Resolver', function() {
               isPolyfill: true,
               path: 'polyfills/Array.prototype.es6.js',
               dependencies: [
+                'polyfills/prelude.js',
+                'polyfills/require.js',
                 'polyfills/polyfills.js',
                 'polyfills/console.js',
                 'polyfills/error-guard.js',
                 'polyfills/String.prototype.es6.js',
-              ],
-            },
-            { id: 'polyfills/Array.es6.js',
-              isPolyfill: true,
-              path: 'polyfills/Array.es6.js',
-              dependencies: [
-                'polyfills/polyfills.js',
-                'polyfills/console.js',
-                'polyfills/error-guard.js',
-                'polyfills/String.prototype.es6.js',
-                'polyfills/Array.prototype.es6.js',
-              ],
-            },
-            { id: 'polyfills/babelHelpers.js',
-              isPolyfill: true,
-              path: 'polyfills/babelHelpers.js',
-              dependencies: [
-                'polyfills/polyfills.js',
-                'polyfills/console.js',
-                'polyfills/error-guard.js',
-                'polyfills/String.prototype.es6.js',
-                'polyfills/Array.prototype.es6.js',
-                'polyfills/Array.es6.js',
               ],
             },
           ]);
@@ -196,13 +190,13 @@ describe('Resolver', function() {
               id: 'some module',
               isPolyfill: true,
               dependencies: [
+                'polyfills/prelude.js',
+                'polyfills/require.js',
                 'polyfills/polyfills.js',
                 'polyfills/console.js',
                 'polyfills/error-guard.js',
                 'polyfills/String.prototype.es6.js',
-                'polyfills/Array.prototype.es6.js',
-                'polyfills/Array.es6.js',
-                'polyfills/babelHelpers.js',
+                'polyfills/Array.prototype.es6.js'
               ]
             },
           ]);
@@ -627,8 +621,7 @@ describe('Resolver', function() {
         createModule('test module', ['x', 'y']),
         code
       ).then(processedCode => {
-        expect(processedCode.name).toEqual('test module');
-        expect(processedCode.code).toEqual([
+        expect(processedCode).toEqual([
           '__d(\'test module\',function(global, require,' +
             ' module, exports) {  ' +
             // single line import

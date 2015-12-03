@@ -27,10 +27,16 @@ RCT_EXPORT_MODULE()
 
 - (instancetype)initWithDelegate:(id<RCTExceptionsManagerDelegate>)delegate
 {
-  if ((self = [self init])) {
+  if ((self = [super init])) {
     _delegate = delegate;
+    _maxReloadAttempts = 0;
   }
   return self;
+}
+
+- (instancetype)init
+{
+  return [self initWithDelegate:nil];
 }
 
 RCT_EXPORT_METHOD(reportSoftException:(NSString *)message

@@ -16,7 +16,7 @@ namespace facebook { namespace jni {
 
 
 template<>
-class JObjectWrapper<jqpl> : public JObjectWrapper<jobject> {
+class JObjectWrapper<jqpl> : public JObject {
 
  public:
   static constexpr const char* kJavaDescriptor = "Lcom/facebook/quicklog/QuickPerformanceLogger;";
@@ -65,7 +65,7 @@ using JQuickPerformanceLogger = JObjectWrapper<jqpl>;
 
 
 template<>
-class JObjectWrapper<jqplProvider> : public JObjectWrapper<jobject> {
+class JObjectWrapper<jqplProvider> : public JObject {
  public:
   static constexpr const char* kJavaDescriptor =
     "Lcom/facebook/quicklog/QuickPerformanceLoggerProvider;";

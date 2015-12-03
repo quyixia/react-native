@@ -92,7 +92,7 @@ static NSString *RCTRecursiveAccessibilityLabel(UIView *view)
 
 @implementation RCTView
 {
-  NSMutableArray<UIView *> *_reactSubviews;
+  NSMutableArray<UIView<RCTComponent> *> *_reactSubviews;
   UIColor *_backgroundColor;
 }
 
@@ -108,7 +108,6 @@ static NSString *RCTRecursiveAccessibilityLabel(UIView *view)
     _borderTopRightRadius = -1;
     _borderBottomLeftRadius = -1;
     _borderBottomRightRadius = -1;
-    _borderStyle = RCTBorderStyleSolid;
 
     _backgroundColor = super.backgroundColor;
   }
@@ -414,7 +413,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:unused)
   [subview removeFromSuperview];
 }
 
-- (NSArray<UIView *> *)reactSubviews
+- (NSArray<UIView<RCTComponent> *> *)reactSubviews
 {
   // The _reactSubviews array is only used when we have hidden
   // offscreen views. If _reactSubviews is nil, we can assume
@@ -510,7 +509,6 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:unused)
   RCTCornerRadiiAreEqual(cornerRadii) &&
   RCTBorderInsetsAreEqual(borderInsets) &&
   RCTBorderColorsAreEqual(borderColors) &&
-  _borderStyle == RCTBorderStyleSolid &&
 
   // iOS draws borders in front of the content whereas CSS draws them behind
   // the content. For this reason, only use iOS border drawing when clipping
@@ -533,9 +531,9 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:unused)
     return;
   }
 
-  UIImage *image = RCTGetBorderImage(cornerRadii,
-                                     borderInsets,
-                                     borderColors,
+  UIImage *image = RCTGetBorderImage([self cornerRadii],
+                                     [self bordersAsInsets],
+                                     [self borderColors],
                                      _backgroundColor.CGColor,
                                      self.clipsToBounds);
 
@@ -632,8 +630,6 @@ setBorderWidth(Right)
 setBorderWidth(Bottom)
 setBorderWidth(Left)
 
-#pragma mark - Border Radius
-
 #define setBorderRadius(side)                     \
   - (void)setBorder##side##Radius:(CGFloat)radius \
   {                                               \
@@ -649,20 +645,6 @@ setBorderRadius(TopLeft)
 setBorderRadius(TopRight)
 setBorderRadius(BottomLeft)
 setBorderRadius(BottomRight)
-
-#pragma mark - Border Style
-
-#define setBorderStyle(side)                                   \
-  - (void)setBorder##side##Style:(RCTBorderStyle)style \
-  {                                                            \
-    if (_border##side##Style == style) {                       \
-      return;                                                  \
-    }                                                          \
-    _border##side##Style = style;                              \
-    [self.layer setNeedsDisplay];                              \
-  }
-
-setBorderStyle()
 
 - (void)dealloc
 {

@@ -42,7 +42,7 @@ RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
 RCT_REMAP_VIEW_PROPERTY(mode, datePickerMode, UIDatePickerMode)
 RCT_REMAP_VIEW_PROPERTY(timeZoneOffsetInMinutes, timeZone, NSTimeZone)
 
-- (NSDictionary<NSString *, id> *)constantsToExport
+- (NSDictionary *)constantsToExport
 {
   UIDatePicker *view = [UIDatePicker new];
   return @{

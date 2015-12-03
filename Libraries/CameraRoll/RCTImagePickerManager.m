@@ -9,9 +9,6 @@
  */
 
 #import "RCTImagePickerManager.h"
-#import "RCTImageStoreManager.h"
-
-#import "RCTConvert.h"
 #import "RCTRootView.h"
 #import "RCTLog.h"
 #import "RCTUtils.h"
@@ -33,11 +30,14 @@
 
 RCT_EXPORT_MODULE(ImagePickerIOS);
 
-@synthesize bridge = _bridge;
-
-- (dispatch_queue_t)methodQueue
+- (instancetype)init
 {
-  return dispatch_get_main_queue();
+  if ((self = [super init])) {
+    _pickers = [NSMutableArray new];
+    _pickerCallbacks = [NSMutableArray new];
+    _pickerCancelCallbacks = [NSMutableArray new];
+  }
+  return self;
 }
 
 RCT_EXPORT_METHOD(canRecordVideos:(RCTResponseSenderBlock)callback)
@@ -60,17 +60,21 @@ RCT_EXPORT_METHOD(openCameraDialog:(NSDictionary *)config
     return;
   }
 
+  UIViewController *rootViewController = RCTKeyWindow().rootViewController;
+
   UIImagePickerController *imagePicker = [UIImagePickerController new];
   imagePicker.delegate = self;
   imagePicker.sourceType = UIImagePickerControllerSourceTypeCamera;
 
-  if ([RCTConvert BOOL:config[@"videoMode"]]) {
+  if ([config[@"videoMode"] boolValue]) {
     imagePicker.cameraCaptureMode = UIImagePickerControllerCameraCaptureModeVideo;
   }
 
-  [self _presentPicker:imagePicker
-       successCallback:callback
-        cancelCallback:cancelCallback];
+  [_pickers addObject:imagePicker];
+  [_pickerCallbacks addObject:callback];
+  [_pickerCancelCallbacks addObject:cancelCallback];
+
+  [rootViewController presentViewController:imagePicker animated:YES completion:nil];
 }
 
 RCT_EXPORT_METHOD(openSelectDialog:(NSDictionary *)config
@@ -82,78 +86,34 @@ RCT_EXPORT_METHOD(openSelectDialog:(NSDictionary *)config
     return;
   }
 
+  UIViewController *rootViewController = RCTKeyWindow().rootViewController;
+
   UIImagePickerController *imagePicker = [UIImagePickerController new];
   imagePicker.delegate = self;
   imagePicker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
 
   NSMutableArray<NSString *> *allowedTypes = [NSMutableArray new];
-  if ([RCTConvert BOOL:config[@"showImages"]]) {
+  if ([config[@"showImages"] boolValue]) {
     [allowedTypes addObject:(NSString *)kUTTypeImage];
   }
-  if ([RCTConvert BOOL:config[@"showVideos"]]) {
+  if ([config[@"showVideos"] boolValue]) {
     [allowedTypes addObject:(NSString *)kUTTypeMovie];
   }
 
   imagePicker.mediaTypes = allowedTypes;
 
-  [self _presentPicker:imagePicker
-       successCallback:callback
-        cancelCallback:cancelCallback];
-}
-
-- (void)imagePickerController:(UIImagePickerController *)picker
-didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
-{
-  // Image from PhotoLibrary
-  NSString *imageUri = [info[UIImagePickerControllerReferenceURL] absoluteString];
-  if (imageUri) {
-    [self _dismissPicker:picker args:@[imageUri]];
-
-  } else {
-    // Image from CameraRoll hasn't uri.
-    // We need to save it to the store first.
-    UIImage *originalImage = info[UIImagePickerControllerOriginalImage];
-
-    // WARNING: Using imageStoreManager causes memory leak
-    // because image isn't removed from store once we're done using it
-    [_bridge.imageStoreManager storeImage:originalImage withBlock:^(NSString *tempImageTag) {
-      if (!tempImageTag) {
-        [self _dismissPicker:picker args:nil];
-        return;
-      }
-      [self _dismissPicker:picker args:@[tempImageTag]];
-    }];
-  }
-}
-
-- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker
-{
-  [self _dismissPicker:picker args:nil];
-}
-
-- (void)_presentPicker:(UIImagePickerController *)imagePicker
-       successCallback:(RCTResponseSenderBlock)callback
-        cancelCallback:(RCTResponseSenderBlock)cancelCallback
-{
-  if (!_pickers) {
-    _pickers = [NSMutableArray new];
-    _pickerCallbacks = [NSMutableArray new];
-    _pickerCancelCallbacks = [NSMutableArray new];
-  }
-
   [_pickers addObject:imagePicker];
   [_pickerCallbacks addObject:callback];
   [_pickerCancelCallbacks addObject:cancelCallback];
 
-  UIViewController *rootViewController = RCTKeyWindow().rootViewController;
   [rootViewController presentViewController:imagePicker animated:YES completion:nil];
 }
 
-- (void)_dismissPicker:(UIImagePickerController *)picker args:(NSArray *)args
+- (void)imagePickerController:(UIImagePickerController *)picker
+didFinishPickingMediaWithInfo:(NSDictionary *)info
 {
   NSUInteger index = [_pickers indexOfObject:picker];
-  RCTResponseSenderBlock successCallback = _pickerCallbacks[index];
-  RCTResponseSenderBlock cancelCallback = _pickerCancelCallbacks[index];
+  RCTResponseSenderBlock callback = _pickerCallbacks[index];
 
   [_pickers removeObjectAtIndex:index];
   [_pickerCallbacks removeObjectAtIndex:index];
@@ -162,11 +122,22 @@ didFinishPickingMediaWithInfo:(NSDictionary<NSString *, id> *)info
   UIViewController *rootViewController = RCTKeyWindow().rootViewController;
   [rootViewController dismissViewControllerAnimated:YES completion:nil];
 
-  if (args) {
-    successCallback(args);
-  } else {
-    cancelCallback(@[]);
-  }
+  callback(@[[info[UIImagePickerControllerReferenceURL] absoluteString]]);
+}
+
+- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker
+{
+  NSUInteger index = [_pickers indexOfObject:picker];
+  RCTResponseSenderBlock callback = _pickerCancelCallbacks[index];
+
+  [_pickers removeObjectAtIndex:index];
+  [_pickerCallbacks removeObjectAtIndex:index];
+  [_pickerCancelCallbacks removeObjectAtIndex:index];
+
+  UIViewController *rootViewController = RCTKeyWindow().rootViewController;
+  [rootViewController dismissViewControllerAnimated:YES completion:nil];
+
+  callback(@[]);
 }
 
 @end

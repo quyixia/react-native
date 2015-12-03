@@ -9,97 +9,76 @@
 
 #import "RCTImageStoreManager.h"
 
-#import <ImageIO/ImageIO.h>
-#import <libkern/OSAtomic.h>
-#import <MobileCoreServices/UTType.h>
-
 #import "RCTAssert.h"
-#import "RCTImageUtils.h"
-#import "RCTLog.h"
 #import "RCTUtils.h"
-
-static NSString *const RCTImageStoreURLScheme = @"rct-image-store";
 
 @implementation RCTImageStoreManager
 {
-  NSMutableDictionary<NSString *, NSData *> *_store;
-  NSUInteger *_id;
+  NSMutableDictionary *_store;
 }
 
 @synthesize methodQueue = _methodQueue;
 
 RCT_EXPORT_MODULE()
 
-- (void)removeImageForTag:(NSString *)imageTag withBlock:(void (^)())block
+- (instancetype)init
 {
-  dispatch_async(_methodQueue, ^{
-    [self removeImageForTag:imageTag];
-    if (block) {
-      block();
-    }
-  });
-}
+  if ((self = [super init])) {
 
-- (NSString *)_storeImageData:(NSData *)imageData
-{
-  RCTAssertThread(_methodQueue, @"Must be called on RCTImageStoreManager thread");
-
-  if (!_store) {
+    // TODO: need a way to clear this store
     _store = [NSMutableDictionary new];
-    _id = 0;
   }
-
-  NSString *imageTag = [NSString stringWithFormat:@"%@://%tu", RCTImageStoreURLScheme, _id++];
-  _store[imageTag] = imageData;
-  return imageTag;
+  return self;
 }
 
-- (void)storeImageData:(NSData *)imageData withBlock:(void (^)(NSString *imageTag))block
+- (NSString *)storeImage:(UIImage *)image
 {
-  RCTAssertParam(block);
-  dispatch_async(_methodQueue, ^{
-    block([self _storeImageData:imageData]);
-  });
+  RCTAssertMainThread();
+  NSString *tag = [NSString stringWithFormat:@"rct-image-store://%tu", _store.count];
+  _store[tag] = image;
+  return tag;
 }
 
-- (void)getImageDataForTag:(NSString *)imageTag withBlock:(void (^)(NSData *imageData))block
+- (UIImage *)imageForTag:(NSString *)imageTag
 {
-  RCTAssertParam(block);
-  dispatch_async(_methodQueue, ^{
-    block(_store[imageTag]);
-  });
+  RCTAssertMainThread();
+  return _store[imageTag];
 }
 
 - (void)storeImage:(UIImage *)image withBlock:(void (^)(NSString *imageTag))block
 {
-  RCTAssertParam(block);
-  dispatch_async(_methodQueue, ^{
-    NSString *imageTag = [self _storeImageData:RCTGetImageData(image.CGImage, 0.75)];
-    dispatch_async(dispatch_get_main_queue(), ^{
+  dispatch_async(dispatch_get_main_queue(), ^{
+    NSString *imageTag = [self storeImage:image];
+    if (block) {
       block(imageTag);
-    });
+    }
   });
 }
 
-RCT_EXPORT_METHOD(removeImageForTag:(NSString *)imageTag)
+- (void)getImageForTag:(NSString *)imageTag withBlock:(void (^)(UIImage *image))block
 {
-  [_store removeObjectForKey:imageTag];
+  RCTAssert(block != nil, @"block must not be nil");
+  dispatch_async(dispatch_get_main_queue(), ^{
+    block([self imageForTag:imageTag]);
+  });
 }
 
-// TODO (#5906496): Name could be more explicit - something like getBase64EncodedDataForTag:?
+// TODO (#5906496): Name could be more explicit - something like getBase64EncodedJPEGDataForTag:?
 RCT_EXPORT_METHOD(getBase64ForTag:(NSString *)imageTag
                   successCallback:(RCTResponseSenderBlock)successCallback
                   errorCallback:(RCTResponseErrorBlock)errorCallback)
 {
-  NSData *imageData = _store[imageTag];
-  if (!imageData) {
-    errorCallback(RCTErrorWithMessage([NSString stringWithFormat:@"Invalid imageTag: %@", imageTag]));
-    return;
-  }
-  // Dispatching to a background thread to perform base64 encoding
-  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-    successCallback(@[[imageData base64EncodedStringWithOptions:0]]);
-  });
+  [self getImageForTag:imageTag withBlock:^(UIImage *image) {
+    if (!image) {
+      errorCallback(RCTErrorWithMessage([NSString stringWithFormat:@"Invalid imageTag: %@", imageTag]));
+      return;
+    }
+    dispatch_async(_methodQueue, ^{
+      NSData *imageData = UIImageJPEGRepresentation(image, 1.0);
+      NSString *base64 = [imageData base64EncodedStringWithOptions:NSDataBase64EncodingEndLineWithLineFeed];
+      successCallback(@[[base64 stringByReplacingOccurrencesOfString:@"\n" withString:@""]]);
+    });
+  }];
 }
 
 RCT_EXPORT_METHOD(addImageFromBase64:(NSString *)base64String
@@ -107,113 +86,38 @@ RCT_EXPORT_METHOD(addImageFromBase64:(NSString *)base64String
                   errorCallback:(RCTResponseErrorBlock)errorCallback)
 
 {
-  // Dispatching to a background thread to perform base64 decoding
-  dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-    NSData *imageData = [[NSData alloc] initWithBase64EncodedString:base64String options:0];
-    if (imageData) {
-      dispatch_async(_methodQueue, ^{
-        successCallback(@[[self _storeImageData:imageData]]);
-      });
-    } else {
-      errorCallback(RCTErrorWithMessage(@"Failed to add image from base64String"));
-    }
-  });
-}
-
-#pragma mark - RCTURLRequestHandler
-
-- (BOOL)canHandleRequest:(NSURLRequest *)request
-{
-  return [request.URL.scheme caseInsensitiveCompare:RCTImageStoreURLScheme] == NSOrderedSame;
-}
-
-- (id)sendRequest:(NSURLRequest *)request withDelegate:(id<RCTURLRequestDelegate>)delegate
-{
-  __block volatile uint32_t cancelled = 0;
-  void (^cancellationBlock)(void) = ^{
-    OSAtomicOr32Barrier(1, &cancelled);
-  };
-
-  // Dispatch async to give caller time to cancel the request
-  dispatch_async(_methodQueue, ^{
-    if (cancelled) {
-      return;
-    }
-
-    NSString *imageTag = request.URL.absoluteString;
-    NSData *imageData = _store[imageTag];
-    if (!imageData) {
-      NSError *error = RCTErrorWithMessage([NSString stringWithFormat:@"Invalid imageTag: %@", imageTag]);
-      [delegate URLRequest:cancellationBlock didCompleteWithError:error];
-      return;
-    }
-
-    CGImageSourceRef sourceRef = CGImageSourceCreateWithData((__bridge CFDataRef)imageData, NULL);
-    if (!sourceRef) {
-      NSError *error = RCTErrorWithMessage([NSString stringWithFormat:@"Unable to decode data for imageTag: %@", imageTag]);
-      [delegate URLRequest:cancellationBlock didCompleteWithError:error];
-      return;
-    }
-    CFStringRef UTI = CGImageSourceGetType(sourceRef);
-    CFRelease(sourceRef);
-
-    NSString *MIMEType = (__bridge_transfer NSString *)UTTypeCopyPreferredTagWithClass(UTI, kUTTagClassMIMEType);
-    NSURLResponse *response = [[NSURLResponse alloc] initWithURL:request.URL
-                                                        MIMEType:MIMEType
-                                           expectedContentLength:imageData.length
-                                                textEncodingName:nil];
-
-    [delegate URLRequest:cancellationBlock didReceiveResponse:response];
-    [delegate URLRequest:cancellationBlock didReceiveData:imageData];
-    [delegate URLRequest:cancellationBlock didCompleteWithError:nil];
-
-  });
-
-  return cancellationBlock;
-}
-
-- (void)cancelRequest:(id)requestToken
-{
-  if (requestToken) {
-    ((void (^)(void))requestToken)();
+  NSData *imageData = [[NSData alloc] initWithBase64EncodedString:base64String options:0];
+  if (imageData) {
+    UIImage *image = [[UIImage alloc] initWithData:imageData];
+    [self storeImage:image withBlock:^(NSString *imageTag) {
+      successCallback(@[imageTag]);
+    }];
+  } else {
+    errorCallback(RCTErrorWithMessage(@"Failed to add image from base64String"));
   }
 }
 
-@end
+#pragma mark - RCTImageLoader
 
-@implementation RCTImageStoreManager (Deprecated)
-
-- (NSString *)storeImage:(UIImage *)image
+- (BOOL)canLoadImageURL:(NSURL *)requestURL
 {
-  RCTAssertMainThread();
-  RCTLogWarn(@"RCTImageStoreManager.storeImage() is deprecated and has poor performance. Use an alternative method instead.");
-  __block NSString *imageTag;
-  dispatch_sync(_methodQueue, ^{
-    imageTag = [self _storeImageData:RCTGetImageData(image.CGImage, 0.75)];
-  });
-  return imageTag;
+  return [requestURL.scheme.lowercaseString isEqualToString:@"rct-image-store"];
 }
 
-- (UIImage *)imageForTag:(NSString *)imageTag
+- (RCTImageLoaderCancellationBlock)loadImageForURL:(NSURL *)imageURL size:(CGSize)size scale:(CGFloat)scale resizeMode:(UIViewContentMode)resizeMode progressHandler:(RCTImageLoaderProgressBlock)progressHandler completionHandler:(RCTImageLoaderCompletionBlock)completionHandler
 {
-  RCTAssertMainThread();
-  RCTLogWarn(@"RCTImageStoreManager.imageForTag() is deprecated and has poor performance. Use an alternative method instead.");
-  __block NSData *imageData;
-  dispatch_sync(_methodQueue, ^{
-    imageData = _store[imageTag];
-  });
-  return [UIImage imageWithData:imageData];
-}
+  NSString *imageTag = imageURL.absoluteString;
+  [self getImageForTag:imageTag withBlock:^(UIImage *image) {
+    if (image) {
+      completionHandler(nil, image);
+    } else {
+      NSString *errorMessage = [NSString stringWithFormat:@"Unable to load image from image store: %@", imageTag];
+      NSError *error = RCTErrorWithMessage(errorMessage);
+      completionHandler(error, nil);
+    }
+  }];
 
-- (void)getImageForTag:(NSString *)imageTag withBlock:(void (^)(UIImage *image))block
-{
-  RCTAssertParam(block);
-  dispatch_async(_methodQueue, ^{
-    NSData *imageData = _store[imageTag];
-    dispatch_async(dispatch_get_main_queue(), ^{
-      block([UIImage imageWithData:imageData]);
-    });
-  });
+  return nil;
 }
 
 @end
@@ -222,7 +126,7 @@ RCT_EXPORT_METHOD(addImageFromBase64:(NSString *)base64String
 
 - (RCTImageStoreManager *)imageStoreManager
 {
-  return [self moduleForClass:[RCTImageStoreManager class]];
+  return self.modules[RCTBridgeModuleNameForClass([RCTImageStoreManager class])];
 }
 
 @end
